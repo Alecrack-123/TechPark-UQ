@@ -1,0 +1,12 @@
+# Configuraciones de IntelliJ
+.idea/
+*.iml
+
+# Archivos compilados de Java
+backend/target/
+*.class
+
+# Node y Frontend (Para cuando crees el React)
+frontend/node_modules/
+frontend/dist/
+.env
