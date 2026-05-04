@@ -1,109 +1,93 @@
 package com.techpark.backend.model;
 
 // import com.techpark.backend.structures.SetPropio;
-// import com.techpark.backend.structures.ListaEnlazadaPropia;
+// import com.techpark.backend.structures.ListaEnlazada;
 
-public class Visitante {
-    private String nombre;
-    private String documento;
+public class Visitante extends Persona {
     private int edad;
     private double estatura;
     private double saldoVirtual;
-    private TipoTicket tipoTicket;
+    private Ticket ticket; // Ahora usamos la clase Ticket en lugar del enum directo
 
     // Estructuras propias requeridas por el proyecto
-    // private SetPropio<String> favoritos;
-    // private ListaEnlazadaPropia<String> historialVisitas;
+    // private SetPropio<Atraccion> favoritos;
+    // private ListaEnlazada<Atraccion> historialVisitas;
 
-    public Visitante(String nombre, String documento, int edad, double estatura, double saldoInicial, TipoTicket tipoTicket) {
-        this.nombre = nombre;
-        this.documento = documento;
+    public Visitante(String nombre, String documento, int edad, double estatura, double saldoInicial) {
+        super(nombre, documento); // Se envían a la clase Persona
         this.edad = edad;
         this.estatura = estatura;
         this.saldoVirtual = saldoInicial;
-        this.tipoTicket = tipoTicket;
-
-        // Aquí inicializaremos las estructuras cuando existan
+        
+        // Inicialización de estructuras cuando las tengas listas
         // this.favoritos = new SetPropio<>();
-        // this.historialVisitas = new ListaEnlazadaPropia<>();
+        // this.historialVisitas = new ListaEnlazada<>();
     }
 
-    // Lógica de validación física y financiera
+    // Lógica de validación física y financiera según el nuevo Ticket
     public boolean puedeIngresar(Atraccion atraccion) {
         if (this.estatura < atraccion.getAlturaMinima()) return false;
         if (this.edad < atraccion.getEdadMinima()) return false;
 
-        if (this.tipoTicket == TipoTicket.GENERAL && atraccion.getCostoAdicional() > 0) {
+        // Validamos si tiene ticket y si es GENERAL para verificar el saldo extra
+        if (this.ticket != null && this.ticket.getTipo() == TipoTicket.GENERAL && atraccion.getCostoAdicional() > 0) {
             return this.saldoVirtual >= atraccion.getCostoAdicional();
         }
-        return true;
+        
+        // Si no tiene ticket, técnicamente no puede entrar a la fila
+        return this.ticket != null;
     }
 
-    public void pagarEntrada(double costo) {
-        if (this.saldoVirtual < costo) {
+    public void comprarTicket(TipoTicket tipo, double precio) {
+        if (this.saldoVirtual >= precio) {
+            this.pagar(precio);
+            this.ticket = new Ticket(tipo, precio);
+        } else {
+            throw new IllegalStateException("Saldo insuficiente para comprar el ticket.");
+        }
+    }
+
+    public void pagar(double monto) {
+        if (this.saldoVirtual < monto) {
             throw new IllegalStateException("Saldo insuficiente.");
         }
-        this.saldoVirtual -= costo;
+        this.saldoVirtual -= monto;
     }
 
-    // --- NUEVOS MÉTODOS DE INTERACCIÓN ---
+    public void recibirNotificacion(Notificacion n) {
+        System.out.println("Mensaje para " + this.getNombre() + ": " + n.getMensaje());
+    }
 
-    /* Descomentar cuando la ListaEnlazada esté lista
-    public void agregarAHistorial(String nombreAtraccion) {
-        this.historialVisitas.agregarAlFinal(nombreAtraccion);
+    // --- MÉTODOS DE INTERACCIÓN CON ESTRUCTURAS ---
+
+    /* public void agregarAHistorial(Atraccion atraccion) {
+        this.historialVisitas.agregarAlFinal(atraccion);
+    }
+
+    public void agregarFavorito(Atraccion atraccion) {
+        this.favoritos.agregar(atraccion);
     }
     */
 
-    /* Descomentar cuando el Set esté listo
-    public void agregarFavorito(String nombreAtraccion) {
-        this.favoritos.agregar(nombreAtraccion);
-    }
-    */
-    public TipoTicket getTipoTicket() {
-        return this.tipoTicket;
+    // --- GETTERS Y SETTERS ---
+
+    public Ticket getTicket() {
+        return this.ticket;
     }
 
     public double getSaldoVirtual() {
         return this.saldoVirtual;
     }
 
-    public String getNombre() {
-        return this.nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
-
-    public String getDocumento() {
-        return documento;
-    }
-
-    public void setDocumento(String documento) {
-        this.documento = documento;
-    }
-
     public int getEdad() {
         return edad;
-    }
-
-    public void setEdad(int edad) {
-        this.edad = edad;
     }
 
     public double getEstatura() {
         return estatura;
     }
 
-    public void setEstatura(double estatura) {
-        this.estatura = estatura;
-    }
-
     public void setSaldoVirtual(double saldoVirtual) {
         this.saldoVirtual = saldoVirtual;
-    }
-
-    public void setTipoTicket(TipoTicket tipoTicket) {
-        this.tipoTicket = tipoTicket;
     }
 }
