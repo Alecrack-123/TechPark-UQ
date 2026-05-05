@@ -4,7 +4,15 @@ import java.util.Date;
 
 public class Ticket {
     private TipoTicket tipo;
+    public void setTipo(TipoTicket tipo) {
+        this.tipo = tipo;
+    }
+
     private double precio;
+    public void setPrecio(double precio) {
+        this.precio = precio;
+    }
+
     private Date fechaCompra;
 
     /**
@@ -36,5 +44,9 @@ public class Ticket {
     @Override
     public String toString() {
         return "Ticket [" + tipo + " | Precio: $" + precio + " | Fecha: " + fechaCompra + "]";
+    }
+
+    public void setFechaCompra(Date fechaCompra) {
+        this.fechaCompra = fechaCompra;
     }
 }
