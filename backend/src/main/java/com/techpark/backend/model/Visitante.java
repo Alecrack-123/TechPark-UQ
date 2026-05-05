@@ -1,7 +1,6 @@
 package com.techpark.backend.model;
+import com.techpark.backend.structures.ListaEnlazada;
 
-// import com.techpark.backend.structures.SetPropio;
-// import com.techpark.backend.structures.ListaEnlazada;
 
 public class Visitante extends Persona {
     private int edad;
@@ -11,7 +10,7 @@ public class Visitante extends Persona {
 
     // Estructuras propias requeridas por el proyecto
     // private SetPropio<Atraccion> favoritos;
-    // private ListaEnlazada<Atraccion> historialVisitas;
+     private ListaEnlazada<Atraccion> historialVisitas;
 
     public Visitante(String nombre, String documento, int edad, double estatura, double saldoInicial) {
         super(nombre, documento); // Se envían a la clase Persona
@@ -21,7 +20,7 @@ public class Visitante extends Persona {
         
         // Inicialización de estructuras cuando las tengas listas
         // this.favoritos = new SetPropio<>();
-        // this.historialVisitas = new ListaEnlazada<>();
+        this.historialVisitas = new ListaEnlazada<>();
     }
 
     // Lógica de validación física y financiera según el nuevo Ticket
@@ -69,6 +68,24 @@ public class Visitante extends Persona {
     }
     */
 
+    public void agregarAHistorial(Atraccion atraccion) {
+    if (atraccion != null) {
+        this.historialVisitas.agregar(atraccion);
+    }
+    }
+
+    public ListaEnlazada<Atraccion> getHistorialVisitas() {
+    return historialVisitas;
+    }
+
+    public int getCantidadVisitas() {
+    return historialVisitas.size();
+    }
+
+public Atraccion obtenerVisita(int indice) {
+    return historialVisitas.obtener(indice);
+}
+
     // --- GETTERS Y SETTERS ---
 
     public Ticket getTicket() {
@@ -89,5 +106,13 @@ public class Visitante extends Persona {
 
     public void setSaldoVirtual(double saldoVirtual) {
         this.saldoVirtual = saldoVirtual;
+    }
+
+    public void setEstatura(double estatura) {
+        this.estatura = estatura;
+    }
+
+    public void setEdad(int edad) {
+        this.edad = edad;
     }
 }
