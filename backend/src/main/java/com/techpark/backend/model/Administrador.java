@@ -1,9 +1,49 @@
 package com.techpark.backend.model;
 
+import com.techpark.backend.structures.ArbolEmpleados;
+
 public class Administrador extends Empleado {
+
+    private ArbolEmpleados arbolEmpleados;
 
     public Administrador(String nombre, String documento, String idEmpleado) {
         super(nombre, documento, idEmpleado);
+        this.arbolEmpleados = new ArbolEmpleados();
+    }
+
+    // Registrar empleado en el árbol
+    public void registrarEmpleado(Empleado empleado) {
+        if (empleado != null) {
+            arbolEmpleados.insertar(empleado);
+        }
+    }
+
+    // Buscar empleado por ID
+    public Empleado buscarEmpleado(String idEmpleado) {
+        return arbolEmpleados.buscar(idEmpleado);
+    }
+
+    // Asignar operador a una zona
+    public void asignarOperadorAZona(Operador operador, Zona zona) {
+        if (operador != null && zona != null) {
+            zona.asignarOperador(operador);
+        }
+    }
+
+    // Retirar operador de una zona
+    public void retirarOperadorDeZona(Operador operador, Zona zona) {
+        if (operador != null && zona != null) {
+            zona.retirarOperador(operador);
+        }
+    }
+
+    // Validar si una zona tiene operadores
+    public boolean zonaTieneOperadores(Zona zona) {
+        if (zona == null) {
+            return false;
+        }
+
+        return zona.tieneOperadores();
     }
 
     // Métodos de gestión según tu diagrama UML
@@ -28,4 +68,6 @@ public class Administrador extends Empleado {
         System.out.println("¡ALERTA! El administrador ha cambiado el clima del parque a: " + estado);
         // Aquí luego recorreremos el parque para cerrar atracciones si hay TORMENTA
     }
+
+    
 }
