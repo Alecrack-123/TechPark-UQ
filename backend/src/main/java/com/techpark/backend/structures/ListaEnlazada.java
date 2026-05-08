@@ -10,7 +10,6 @@ public class ListaEnlazada<T> {
         this.tamanio = 0;
     }
 
-    // Agregar al final
     public void agregar(T dato) {
         Nodo<T> nuevo = new Nodo<>(dato);
 
@@ -29,7 +28,6 @@ public class ListaEnlazada<T> {
         tamanio++;
     }
 
-    // Obtener por índice
     public T obtener(int indice) {
         if (indice < 0 || indice >= tamanio) {
             throw new IndexOutOfBoundsException("Índice fuera de rango");
@@ -44,17 +42,14 @@ public class ListaEnlazada<T> {
         return actual.getDato();
     }
 
-    // Saber si está vacía
     public boolean estaVacia() {
         return cabeza == null;
     }
 
-    // Tamaño
     public int size() {
         return tamanio;
     }
 
-    // Buscar elemento
     public boolean contiene(T dato) {
         Nodo<T> actual = cabeza;
 
@@ -62,6 +57,33 @@ public class ListaEnlazada<T> {
             if (actual.getDato().equals(dato)) {
                 return true;
             }
+
+            actual = actual.getSiguiente();
+        }
+
+        return false;
+    }
+
+    public boolean eliminar(T dato) {
+        if (cabeza == null) {
+            return false;
+        }
+
+        if (cabeza.getDato().equals(dato)) {
+            cabeza = cabeza.getSiguiente();
+            tamanio--;
+            return true;
+        }
+
+        Nodo<T> actual = cabeza;
+
+        while (actual.getSiguiente() != null) {
+            if (actual.getSiguiente().getDato().equals(dato)) {
+                actual.setSiguiente(actual.getSiguiente().getSiguiente());
+                tamanio--;
+                return true;
+            }
+
             actual = actual.getSiguiente();
         }
 
