@@ -7,6 +7,7 @@ import com.techpark.backend.model.Administrador;
 import com.techpark.backend.model.Atraccion;
 import com.techpark.backend.model.Empleado;
 import com.techpark.backend.model.EstadoAtraccion;
+import com.techpark.backend.model.GestionZonas;
 import com.techpark.backend.model.Operador;
 import com.techpark.backend.model.TipoAtraccion;
 import com.techpark.backend.model.Visitante;
@@ -70,5 +71,24 @@ public class BackendApplication {
 
         System.out.println("Estado atracción 1: " + atraccion1.getEstado());
         System.out.println("Motivo cierre atracción 1: " + atraccion1.getMotivoCierre());
+
+        System.out.println("\n--- PRUEBA GESTION DE ZONAS ---");
+
+        GestionZonas gestionZonas = new GestionZonas();
+
+        Zona zonaInfantil = new Zona("Z2", "Zona Infantil", 80);
+        Zona zonaAcuatica = new Zona("Z3", "Zona Acuatica", 120);
+        Zona zonaComidas = new Zona("Z4", "Zona de Comidas", 60);
+
+        gestionZonas.agregarZona(zona);
+        gestionZonas.agregarZona(zonaInfantil);
+        gestionZonas.agregarZona(zonaAcuatica);
+        gestionZonas.agregarZona(zonaComidas);
+
+        gestionZonas.mostrarZonas();
+
+        gestionZonas.modificarZona("Z4", "Zona Gastronomica", 90);
+
+        gestionZonas.mostrarZonas();
     }
 }
