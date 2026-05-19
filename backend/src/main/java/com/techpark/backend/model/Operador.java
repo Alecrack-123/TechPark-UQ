@@ -1,7 +1,5 @@
 package com.techpark.backend.model;
 
-// import com.techpark.backend.structures.ColaPrioridad;
-
 public class Operador extends Empleado {
 
     private Zona zonaAsignada;
@@ -51,9 +49,19 @@ public class Operador extends Empleado {
     // --- LÓGICA PRINCIPAL: PROCESAR FILA ---
 
     public void procesarFila(Atraccion atr) {
+
+        if (zonaAsignada == null) {
+            System.out.println("El operador no tiene una zona asignada.");
+            return;
+        }
+
+        if (!zonaAsignada.contieneAtraccion(atr)) {
+            System.out.println("El operador no puede procesar una atracción fuera de su zona.");
+            return;
+        }
+
         System.out.println("Operador " + this.nombre + " procesando fila para " + atr.getNombre());
 
-        /*
         if (atr.getEstado() != EstadoAtraccion.ACTIVA) {
             System.out.println("No se puede procesar la fila. La atracción no está ACTIVA.");
             return;
@@ -61,10 +69,10 @@ public class Operador extends Empleado {
 
         int capacidad = atr.getCapacidadPorCiclo();
         int ingresados = 0;
-        ColaPrioridad<Visitante> fila = atr.getFilaVirtual();
 
-        while (!fila.estaVacia() && ingresados < capacidad) {
-            Visitante v = fila.desencolar();
+        while (!atr.getFilaVirtual().estaVacia() && ingresados < capacidad) {
+
+            Visitante v = atr.sacarVisitanteDeFila();
 
             if (atr.validarAcceso(v)) {
 
@@ -73,17 +81,19 @@ public class Operador extends Empleado {
                 }
 
                 atr.registrarIngreso(v);
+                v.agregarAHistorial(atr);
                 ingresados++;
 
                 System.out.println("Ingreso aprobado: " + v.getNombre());
+
             } else {
-                System.out.println("Ingreso denegado: " + v.getNombre() + " (No cumple requisitos o saldo insuficiente).");
+
+                System.out.println("Ingreso denegado: " + v.getNombre());
             }
         }
 
         System.out.println("Ciclo iniciado con " + ingresados + " visitantes.");
         atr.iniciarCiclo();
-        */
     }
 
     // --- GETTERS Y SETTERS ---
