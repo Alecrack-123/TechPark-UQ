@@ -13,6 +13,7 @@ import com.techpark.backend.model.TipoAtraccion;
 import com.techpark.backend.model.TipoTicket;
 import com.techpark.backend.model.Visitante;
 import com.techpark.backend.model.Zona;
+import com.techpark.backend.model.GestionClima;
 
 @SpringBootApplication
 public class BackendApplication {
@@ -141,6 +142,23 @@ public class BackendApplication {
 
         System.out.println("Estado despues de revision: " + atraccionMantenimiento.getEstado());
         System.out.println("Visitantes despues de revision: " + atraccionMantenimiento.getContadorVisitantes());
-    }
+    
+         System.out.println("\n--- PRUEBA CLIMA ---");
 
+        GestionClima gestionClima = new GestionClima();
+
+        gestionClima.cerrarPorLluvia(atraccion1);
+
+        System.out.println("Estado por lluvia: " + atraccion1.getEstado());
+        System.out.println("Motivo: " + atraccion1.getMotivoCierre());
+
+        gestionClima.abrirAtraccion(atraccion1);
+
+        System.out.println("Estado despues de abrir: " + atraccion1.getEstado());
+
+        gestionClima.cerrarPorTormenta(atraccion2);
+
+        System.out.println("Estado por tormenta: " + atraccion2.getEstado());
+        System.out.println("Motivo: " + atraccion2.getMotivoCierre());
+    }
 }
