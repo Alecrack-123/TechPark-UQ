@@ -1,5 +1,7 @@
 package com.techpark.backend.model;
 
+import com.techpark.backend.structures.ColaPrioridad;
+
 public class Atraccion {
     private String id;
     private String nombre;
@@ -12,6 +14,7 @@ public class Atraccion {
     private int tiempoEstimadoEspera;
     private EstadoAtraccion estado;
     private String motivoCierre;
+    private ColaPrioridad filaVirtual;
 
     // Constructor
     public Atraccion(String id, String nombre, TipoAtraccion tipo, int capacidadPorCiclo,
@@ -27,6 +30,7 @@ public class Atraccion {
         this.tiempoEstimadoEspera = 0;
         this.estado = EstadoAtraccion.ACTIVA;
         this.motivoCierre = "";
+        this.filaVirtual = new ColaPrioridad();
     }
 
     public String getId() {
@@ -129,49 +133,64 @@ public class Atraccion {
         cambiarEstado(EstadoAtraccion.ACTIVA, "");
     }
 
-        public boolean validarAcceso(Visitante v) {
-            if (v.getEstatura() < this.alturaMinima) return false;
-            if (v.getEdad() < this.edadMinima) return false;
+    public boolean validarAcceso(Visitante v) {
+        if (v.getEstatura() < this.alturaMinima) return false;
+        if (v.getEdad() < this.edadMinima) return false;
 
-            // Validación de saldo para tickets generales en atracciones con costo extra
-            if (v.getTicket() != null && v.getTicket().getTipo() == TipoTicket.GENERAL && this.costoAdicional > 0) {
-                return v.getSaldoVirtual() >= this.costoAdicional;
-            }
-            return true;
+        // Validación de saldo para tickets generales en atracciones con costo extra
+        if (v.getTicket() != null && v.getTicket().getTipo() == TipoTicket.GENERAL && this.costoAdicional > 0) {
+            return v.getSaldoVirtual() >= this.costoAdicional;
         }
+        return true;
+    }
 
-        public void registrarIngreso(Visitante v) {
-            this.contadorVisitantes++;
-            verificarMantenimientoAutomatico();
-        }
+    public void registrarIngreso(Visitante v) {
+        this.contadorVisitantes++;
+        verificarMantenimientoAutomatico();
+    }
 
-        public void verificarMantenimientoAutomatico() {
-            // Bloqueo automático al alcanzar los 500 visitantes
-            if (this.contadorVisitantes >= 500) {
-                this.estado = EstadoAtraccion.EN_MANTENIMIENTO;
-                this.motivoCierre = "Límite de visitantes alcanzado. Requiere revisión técnica.";
-                notificarCambioEstado();
-            }
-        }
-
-        public void verificarMantenimiento() {
-            this.contadorVisitantes = 0;
-            this.estado = EstadoAtraccion.ACTIVA;
-            this.motivoCierre = "";
+    public void verificarMantenimientoAutomatico() {
+        // Bloqueo automático al alcanzar los 500 visitantes
+        if (this.contadorVisitantes >= 500) {
+            this.estado = EstadoAtraccion.EN_MANTENIMIENTO;
+            this.motivoCierre = "Límite de visitantes alcanzado. Requiere revisión técnica.";
             notificarCambioEstado();
         }
+    }
 
-        public void iniciarCiclo() {
-            System.out.println("La atracción " + this.nombre + " ha iniciado su ciclo.");
-        }
+    public void verificarMantenimiento() {
+        this.contadorVisitantes = 0;
+        this.estado = EstadoAtraccion.ACTIVA;
+        this.motivoCierre = "";
+        notificarCambioEstado();
+    }
 
-        public void detenerCiclo() {
-             System.out.println("La atracción " + this.nombre + " ha finalizado su ciclo.");
-        }
+    public void iniciarCiclo() {
+        System.out.println("La atracción " + this.nombre + " ha iniciado su ciclo.");
+    }
 
-        public void notificarCambioEstado() {
-            System.out.println("Notificación: La atracción " + this.nombre + " ahora está " + this.estado);
-        }
+    public void detenerCiclo() {
+        System.out.println("La atracción " + this.nombre + " ha finalizado su ciclo.");
+    }
 
+    public void notificarCambioEstado() {
+        System.out.println("Notificación: La atracción " + this.nombre + " ahora está " + this.estado);
+    }
+
+    public void agregarVisitanteAFila(Visitante visitante) {
+        filaVirtual.encolar(visitante);
+    }
+
+    public Visitante sacarVisitanteDeFila() {
+        return filaVirtual.desencolar();
+    }
+
+    public ColaPrioridad getFilaVirtual() {
+        return filaVirtual;
+    }
+
+    public int getCantidadEnFila() {
+        return filaVirtual.size();
+    }
 
 }
