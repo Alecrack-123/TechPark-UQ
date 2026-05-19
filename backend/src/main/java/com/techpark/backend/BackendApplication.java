@@ -114,6 +114,33 @@ public class BackendApplication {
 
         System.out.println("Personas restantes en fila: " + atraccion1.getCantidadEnFila());
         System.out.println("Visitantes acumulados en atraccion: " + atraccion1.getContadorVisitantes());
+
+        System.out.println("\n--- PRUEBA MANTENIMIENTO AUTOMATICO ---");
+
+        Atraccion atraccionMantenimiento = new Atraccion(
+                "A3",
+                "Torre Digital",
+                TipoAtraccion.MECANICA_ALTURA,
+                10,
+                1.40,
+                12,
+                0
+        );
+
+        zona.agregarAtraccion(atraccionMantenimiento);
+
+        for (int i = 0; i < 500; i++) {
+            atraccionMantenimiento.registrarIngreso(visitante);
+        }
+
+        System.out.println("Visitantes acumulados: " + atraccionMantenimiento.getContadorVisitantes());
+        System.out.println("Estado actual: " + atraccionMantenimiento.getEstado());
+        System.out.println("Motivo cierre: " + atraccionMantenimiento.getMotivoCierre());
+
+        operador.registrarRevisionTecnica(atraccionMantenimiento);
+
+        System.out.println("Estado despues de revision: " + atraccionMantenimiento.getEstado());
+        System.out.println("Visitantes despues de revision: " + atraccionMantenimiento.getContadorVisitantes());
     }
 
 }
