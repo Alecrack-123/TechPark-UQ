@@ -10,6 +10,7 @@ import com.techpark.backend.model.EstadoAtraccion;
 import com.techpark.backend.model.GestionZonas;
 import com.techpark.backend.model.Operador;
 import com.techpark.backend.model.TipoAtraccion;
+import com.techpark.backend.model.TipoTicket;
 import com.techpark.backend.model.Visitante;
 import com.techpark.backend.model.Zona;
 
@@ -72,6 +73,8 @@ public class BackendApplication {
         System.out.println("Estado atracción 1: " + atraccion1.getEstado());
         System.out.println("Motivo cierre atracción 1: " + atraccion1.getMotivoCierre());
 
+        operador.cambiarEstadoAtraccion(atraccion1, EstadoAtraccion.ACTIVA, "Se reactiva para prueba de fila");
+
         System.out.println("\n--- PRUEBA GESTION DE ZONAS ---");
 
         GestionZonas gestionZonas = new GestionZonas();
@@ -90,5 +93,27 @@ public class BackendApplication {
         gestionZonas.modificarZona("Z4", "Zona Gastronomica", 90);
 
         gestionZonas.mostrarZonas();
+
+        System.out.println("\n--- PRUEBA COLA DE PRIORIDAD ---");
+
+        Visitante visitante1 = new Visitante("Pedro", "111", 25, 1.80, 200);
+        Visitante visitante2 = new Visitante("Maria", "222", 19, 1.65, 150);
+        Visitante visitante3 = new Visitante("Juanito", "333", 30, 1.90, 300);
+
+        visitante1.comprarTicket(TipoTicket.GENERAL, 50);
+        visitante2.comprarTicket(TipoTicket.FAST_PASS, 100);
+        visitante3.comprarTicket(TipoTicket.GENERAL, 50);
+
+        atraccion1.agregarVisitanteAFila(visitante1);
+        atraccion1.agregarVisitanteAFila(visitante2);
+        atraccion1.agregarVisitanteAFila(visitante3);
+
+        System.out.println("Personas en fila: " + atraccion1.getCantidadEnFila());
+
+        operador.procesarFila(atraccion1);
+
+        System.out.println("Personas restantes en fila: " + atraccion1.getCantidadEnFila());
+        System.out.println("Visitantes acumulados en atraccion: " + atraccion1.getContadorVisitantes());
     }
+
 }
