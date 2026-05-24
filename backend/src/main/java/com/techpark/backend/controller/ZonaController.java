@@ -1,10 +1,13 @@
 package com.techpark.backend.controller;
 
-import com.techpark.backend.model.Zona;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.techpark.backend.model.Zona;
+
 @RestController
+@CrossOrigin(origins = "*") 
 public class ZonaController {
 
     @GetMapping("/api/zonas")
