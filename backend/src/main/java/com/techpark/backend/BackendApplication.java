@@ -7,13 +7,14 @@ import com.techpark.backend.model.Administrador;
 import com.techpark.backend.model.Atraccion;
 import com.techpark.backend.model.Empleado;
 import com.techpark.backend.model.EstadoAtraccion;
+import com.techpark.backend.model.GestionClima;
 import com.techpark.backend.model.GestionZonas;
 import com.techpark.backend.model.Operador;
 import com.techpark.backend.model.TipoAtraccion;
 import com.techpark.backend.model.TipoTicket;
 import com.techpark.backend.model.Visitante;
 import com.techpark.backend.model.Zona;
-import com.techpark.backend.model.GestionClima;
+import com.techpark.backend.structures.ArbolAtracciones;
 
 @SpringBootApplication
 public class BackendApplication {
@@ -118,15 +119,7 @@ public class BackendApplication {
 
         System.out.println("\n--- PRUEBA MANTENIMIENTO AUTOMATICO ---");
 
-        Atraccion atraccionMantenimiento = new Atraccion(
-                "A3",
-                "Torre Digital",
-                TipoAtraccion.MECANICA_ALTURA,
-                10,
-                1.40,
-                12,
-                0
-        );
+        Atraccion atraccionMantenimiento = new Atraccion("A3", "Torre Digital", TipoAtraccion.MECANICA_ALTURA, 10, 1.40, 12, 0);
 
         zona.agregarAtraccion(atraccionMantenimiento);
 
@@ -142,8 +135,8 @@ public class BackendApplication {
 
         System.out.println("Estado despues de revision: " + atraccionMantenimiento.getEstado());
         System.out.println("Visitantes despues de revision: " + atraccionMantenimiento.getContadorVisitantes());
-    
-         System.out.println("\n--- PRUEBA CLIMA ---");
+
+        System.out.println("\n--- PRUEBA CLIMA ---");
 
         GestionClima gestionClima = new GestionClima();
 
@@ -160,5 +153,42 @@ public class BackendApplication {
 
         System.out.println("Estado por tormenta: " + atraccion2.getEstado());
         System.out.println("Motivo: " + atraccion2.getMotivoCierre());
-    }
+
+       System.out.println("\n--- PRUEBA ABB ATRACCIONES ---");
+
+        ArbolAtracciones arbol = new ArbolAtracciones();
+
+        arbol.insertar(atraccion1);
+        arbol.insertar(atraccion2);
+        arbol.insertar(atraccionMantenimiento);
+
+        Atraccion atraccionBuscada = arbol.buscar("A1");
+
+        if (atraccionBuscada != null) {
+            System.out.println("Atraccion encontrada: " + atraccionBuscada.getNombre());
+        } else {
+            System.out.println("Atraccion no encontrada");
+        }
+
+        System.out.println("\nAtracciones en orden:");
+
+        arbol.mostrar();
+
+        System.out.println("\n--- PRUEBA SET FAVORITOS ---");
+
+        visitante.agregarFavorito(atraccion1);
+        visitante.agregarFavorito(atraccion2);
+        visitante.agregarFavorito(atraccion1);
+
+        System.out.println("Cantidad favoritos: " + visitante.getCantidadFavoritos());
+
+        System.out.println("Atracciones favoritas:");
+
+        visitante.mostrarFavoritos();
+
+        System.out.println(
+                "¿Montaña Rusa es favorita?: "
+                + visitante.esFavorito(atraccion1)
+        );
+        }
 }
