@@ -7,7 +7,7 @@ export interface Atraccion {
   tipo: string
   capacidadMaxima: number
   tiempoEsperaMinutos: number
-  estado: 'ACTIVA' | 'CERRADA' | 'MANTENIMIENTO'
+  estado: 'ACTIVA' | 'CERRADA' | 'EN_MANTENIMIENTO'
   personasEnFila: number
 }
 
@@ -23,6 +23,24 @@ export interface EstadisticasParque {
   atraccionesActivas: number
   totalPersonasEnFila: number
   tiempoPromedioEspera: number
+}
+
+export interface Zona {
+  id: string
+  nombre: string
+  capacidad: number
+}
+
+export interface Estadisticas {
+  totalAtracciones: number
+  atraccionesActivas: number
+  totalPersonasEnFila: number
+  tiempoPromedioEspera: number
+}
+
+export interface ResultadoClima {
+  clima: string
+  mensaje: string
 }
 
 // Funciones para el API de Atracciones
@@ -74,7 +92,7 @@ export async function getPosicionEnFila(atraccionId: number, usuarioId: number):
 }
 
 // Funciones para Estadísticas
-export async function getEstadisticas(): Promise<EstadisticasParque> {
+export async function getEstadisticas(): Promise<Estadisticas> {
   const res = await fetch(`${API_BASE_URL}/estadisticas`)
   if (!res.ok) throw new Error('Error al obtener estadísticas')
   return res.json()
@@ -83,6 +101,20 @@ export async function getEstadisticas(): Promise<EstadisticasParque> {
 export async function getEstadisticasPorAtraccion(id: number) {
   const res = await fetch(`${API_BASE_URL}/estadisticas/atraccion/${id}`)
   if (!res.ok) throw new Error('Error al obtener estadísticas de atracción')
+  return res.json()
+}
+
+// Funciones para Zonas
+export async function getZonas(): Promise<Zona[]> {
+  const res = await fetch(`${API_BASE_URL}/zonas`)
+  if (!res.ok) throw new Error('Error al obtener zonas')
+  return res.json()
+}
+
+// Funciones para Clima
+export async function activarClima(tipo: 'soleado' | 'lluvia' | 'tormenta'): Promise<ResultadoClima> {
+  const res = await fetch(`${API_BASE_URL}/clima/${tipo}`)
+  if (!res.ok) throw new Error('Error al cambiar clima')
   return res.json()
 }
 
@@ -108,4 +140,10 @@ export async function eliminarAtraccion(id: number): Promise<void> {
     method: 'DELETE'
   })
   if (!res.ok) throw new Error('Error al eliminar atracción')
+}
+
+export async function buscarAtraccionPorId(id: string) {
+  const res = await fetch(`${API_BASE_URL}/parque/atracciones/buscar/${id}`)
+  if (!res.ok) throw new Error('Error al buscar atraccion')
+  return res.json()
 }
