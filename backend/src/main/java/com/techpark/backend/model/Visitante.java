@@ -1,6 +1,7 @@
 package com.techpark.backend.model;
-import com.techpark.backend.structures.ListaEnlazada;
 
+import com.techpark.backend.structures.ListaEnlazada;
+import com.techpark.backend.structures.SetFavoritos;
 
 public class Visitante extends Persona {
     private int edad;
@@ -9,17 +10,17 @@ public class Visitante extends Persona {
     private Ticket ticket; // Ahora usamos la clase Ticket en lugar del enum directo
 
     // Estructuras propias requeridas por el proyecto
-    // private SetPropio<Atraccion> favoritos;
-     private ListaEnlazada<Atraccion> historialVisitas;
+    private SetFavoritos favoritos;
+    private ListaEnlazada<Atraccion> historialVisitas;
 
     public Visitante(String nombre, String documento, int edad, double estatura, double saldoInicial) {
         super(nombre, documento); // Se envían a la clase Persona
         this.edad = edad;
         this.estatura = estatura;
         this.saldoVirtual = saldoInicial;
-        
+
         // Inicialización de estructuras cuando las tengas listas
-        // this.favoritos = new SetPropio<>();
+        this.favoritos = new SetFavoritos();
         this.historialVisitas = new ListaEnlazada<>();
     }
 
@@ -32,7 +33,7 @@ public class Visitante extends Persona {
         if (this.ticket != null && this.ticket.getTipo() == TipoTicket.GENERAL && atraccion.getCostoAdicional() > 0) {
             return this.saldoVirtual >= atraccion.getCostoAdicional();
         }
-        
+
         // Si no tiene ticket, técnicamente no puede entrar a la fila
         return this.ticket != null;
     }
@@ -59,32 +60,43 @@ public class Visitante extends Persona {
 
     // --- MÉTODOS DE INTERACCIÓN CON ESTRUCTURAS ---
 
-    /* public void agregarAHistorial(Atraccion atraccion) {
-        this.historialVisitas.agregarAlFinal(atraccion);
-    }
-
-    public void agregarFavorito(Atraccion atraccion) {
-        this.favoritos.agregar(atraccion);
-    }
-    */
-
     public void agregarAHistorial(Atraccion atraccion) {
-    if (atraccion != null) {
-        this.historialVisitas.agregar(atraccion);
-    }
+        if (atraccion != null) {
+            this.historialVisitas.agregar(atraccion);
+        }
     }
 
     public ListaEnlazada<Atraccion> getHistorialVisitas() {
-    return historialVisitas;
+        return historialVisitas;
     }
 
     public int getCantidadVisitas() {
-    return historialVisitas.size();
+        return historialVisitas.size();
     }
 
-public Atraccion obtenerVisita(int indice) {
-    return historialVisitas.obtener(indice);
-}
+    public Atraccion obtenerVisita(int indice) {
+        return historialVisitas.obtener(indice);
+    }
+
+    public void agregarFavorito(Atraccion atraccion) {
+        favoritos.agregar(atraccion);
+    }
+
+    public boolean esFavorito(Atraccion atraccion) {
+        return favoritos.contiene(atraccion);
+    }
+
+    public int getCantidadFavoritos() {
+        return favoritos.size();
+    }
+
+    public Atraccion obtenerFavorito(int indice) {
+        return favoritos.obtener(indice);
+    }
+
+    public void mostrarFavoritos() {
+        favoritos.mostrarFavoritos();
+    }
 
     // --- GETTERS Y SETTERS ---
 
