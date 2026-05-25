@@ -8,18 +8,23 @@ import java.util.Map;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.techpark.backend.model.Atraccion;
 import com.techpark.backend.model.EstadoAtraccion;
+import com.techpark.backend.model.Ticket;
 import com.techpark.backend.model.TipoAtraccion;
+import com.techpark.backend.model.TipoTicket;
+import com.techpark.backend.model.Visitante;
 import com.techpark.backend.structures.ArbolAtracciones;
 
 @RestController
 @CrossOrigin(origins = "*")
 public class AtraccionController {
 
-    private static final ArbolAtracciones arbol = crearArbolInicial();
+     static final ArbolAtracciones arbol = crearArbolInicial();
 
     private static ArbolAtracciones crearArbolInicial() {
         ArbolAtracciones a = new ArbolAtracciones();
@@ -77,5 +82,51 @@ public class AtraccionController {
             return error;
         }
         return toDTO(encontrada);
+    }
+
+    @PostMapping("/api/parque/atracciones/{id}/fila")
+    public Map<String, Object> unirseAFila(@PathVariable String id, @RequestBody Map<String, String> body) {
+        Atraccion encontrada = arbol.buscar(id);
+        Map<String, Object> response = new HashMap<>();
+
+        if (encontrada == null) {
+            response.put("error", "Atracción no encontrada");
+            return response;
+        }
+
+        if (encontrada.getEstado() != EstadoAtraccion.ACTIVA) {
+            response.put("error", "La atracción no está activa");
+            return response;
+        }
+
+        String nombreVisitante = body.getOrDefault("nombre", "Visitante");
+        String tipoTicket = body.getOrDefault("tipoTicket", "GENERAL");
+
+        // Crear visitante con ticket para usar la ColaPrioridad real
+        Visitante visitante = new Visitante(
+        "V" + System.currentTimeMillis(),
+        nombreVisitante,
+        25,
+        1.70,
+        50000.0
+);
+        
+
+        Ticket ticket = new Ticket(
+         tipoTicket.equals("FAST_PASS") ? TipoTicket.FAST_PASS : TipoTicket.GENERAL,
+         0.0
+        );
+        visitante.setTicket(ticket);
+
+        encontrada.agregarVisitanteAFila(visitante);
+
+        int posicion = encontrada.getCantidadEnFila();
+        int tiempoEstimado = posicion * (encontrada.getTiempoEstimadoEspera() / Math.max(encontrada.getCapacidadPorCiclo(), 1));
+
+        response.put("mensaje", "Te uniste a la fila de " + encontrada.getNombre());
+        response.put("posicion", posicion);
+        response.put("tiempoEstimado", tiempoEstimado);
+        response.put("tipoTicket", tipoTicket);
+        return response;
     }
 }
