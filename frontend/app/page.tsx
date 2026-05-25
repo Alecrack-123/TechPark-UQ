@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  getAtracciones, getZonas, getEstadisticas, activarClima, buscarAtraccionPorId,
+  getAtracciones, getZonas, getEstadisticas, activarClima, buscarAtraccionPorId, unirseAFila,
   type Atraccion, type Zona, type Estadisticas
 } from "@/lib/api"
 
@@ -21,7 +21,6 @@ const navItems = [
   { id: "admin", label: "Administración", icon: Settings },
   { id: "stats", label: "Estadísticas", icon: BarChart3 },
 ]
-
 export default function TechParkDashboard() {
   const [activePanel, setActivePanel] = useState("inicio")
   const [atracciones, setAtracciones] = useState<Atraccion[]>([])
@@ -57,13 +56,30 @@ export default function TechParkDashboard() {
     cargarDatos()
   }, [])
 
-  const buscarAtraccion = async () => {
+    const buscarAtraccion = async () => {
     if (busqueda.trim() === "") return
+
     try {
       const data = await buscarAtraccionPorId(busqueda)
       setResultadoBusqueda(data)
     } catch (error) {
       console.error("Error buscando atraccion:", error)
+    }
+  }
+
+  const manejarFila = async (id: string) => {
+    try {
+      const data = await unirseAFila(id, "Juan", "FAST_PASS")
+
+      alert(
+        data.mensaje +
+        "\nPosicion: " + data.posicion +
+        "\nTiempo estimado: " + data.tiempoEstimado + " min"
+      )
+
+    } catch (error) {
+      console.error(error)
+      alert("Error al unirse a la fila")
     }
   }
 
@@ -316,12 +332,19 @@ export default function TechParkDashboard() {
                             <span className="text-sm text-foreground">{atraccion.personasEnFila} / {atraccion.capacidadMaxima}</span>
                           </div>
                         </div>
+
                         {atraccion.estado === "ACTIVA" && atraccion.tiempoEsperaMinutos > 0 && (
                           <div className="mt-3">
                             <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                               <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.min((atraccion.personasEnFila / atraccion.capacidadMaxima) * 100, 100)}%` }} />
                             </div>
                           </div>
+                        )}
+
+                        {atraccion.estado === "ACTIVA" && (
+                          <Button className="mt-4 w-full" onClick={() => manejarFila(String(atraccion.id))}>
+                            Unirse a la fila
+                          </Button>
                         )}
                       </CardContent>
                     </Card>
