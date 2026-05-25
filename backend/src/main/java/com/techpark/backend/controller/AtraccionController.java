@@ -99,6 +99,13 @@ public class AtraccionController {
             return response;
         }
 
+        if (encontrada.getCantidadEnFila() >= 500) {
+            encontrada.setEstado(EstadoAtraccion.EN_MANTENIMIENTO);
+            encontrada.setMotivoCierre("Límite de 500 visitantes alcanzado");
+            response.put("error", "La atracción alcanzó 500 visitantes y entró en mantenimiento");
+            return response;
+        }
+
         String nombreVisitante = body.getOrDefault("nombre", "Visitante");
         String tipoTicket = body.getOrDefault("tipoTicket", "GENERAL");
 
@@ -119,6 +126,11 @@ public class AtraccionController {
         visitante.setTicket(ticket);
 
         encontrada.agregarVisitanteAFila(visitante);
+
+        if (encontrada.getCantidadEnFila() >= 500) {
+            encontrada.setEstado(EstadoAtraccion.EN_MANTENIMIENTO);
+            encontrada.setMotivoCierre("Límite de 500 visitantes alcanzado");
+        }
 
         int posicion = encontrada.getCantidadEnFila();
         int tiempoEstimado = posicion * (encontrada.getTiempoEstimadoEspera() / Math.max(encontrada.getCapacidadPorCiclo(), 1));
