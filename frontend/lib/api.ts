@@ -43,6 +43,14 @@ export interface ResultadoClima {
   mensaje: string
 }
 
+export interface ResultadoFila {
+  mensaje?: string
+  error?: string
+  posicion?: number
+  tiempoEstimado?: number
+  tipoTicket?: string
+}
+
 // Funciones para el API de Atracciones
 export async function getAtracciones(): Promise<Atraccion[]> {
   const res = await fetch(`${API_BASE_URL}/parque/atracciones`)
@@ -67,13 +75,20 @@ export async function actualizarEstadoAtraccion(id: number, estado: string): Pro
 }
 
 // Funciones para Fila Virtual
-export async function unirseAFila(atraccionId: number, usuarioId: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/fila/unirse`, {
+export async function unirseAFila(
+  id: string,
+  nombre: string,
+  tipoTicket: string
+): Promise<ResultadoFila> {
+  const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/fila`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ atraccionId, usuarioId })
+    body: JSON.stringify({ nombre, tipoTicket })
   })
+
   if (!res.ok) throw new Error('Error al unirse a la fila')
+
+  return res.json()
 }
 
 export async function salirDeFila(atraccionId: number, usuarioId: number): Promise<void> {
