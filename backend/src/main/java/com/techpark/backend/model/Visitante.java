@@ -103,6 +103,10 @@ public class Visitante extends Persona {
     public Ticket getTicket() {
         return this.ticket;
     }
+   
+    public void setTicket(Ticket ticket) {
+    this.ticket = ticket;
+    }
 
     public double getSaldoVirtual() {
         return this.saldoVirtual;
