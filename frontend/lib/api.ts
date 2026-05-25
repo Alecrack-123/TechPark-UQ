@@ -162,3 +162,13 @@ export async function buscarAtraccionPorId(id: string) {
   if (!res.ok) throw new Error('Error al buscar atraccion')
   return res.json()
 }
+
+export async function calcularRuta(origen: string, destino: string) {
+  const res = await fetch(`${API_BASE_URL}/rutas/${origen}/${destino}`)
+
+  if (!res.ok) {
+    throw new Error("Error al calcular ruta")
+  }
+
+  return res.json()
+}
