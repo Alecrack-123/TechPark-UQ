@@ -11,7 +11,13 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  getAtracciones, getZonas, getEstadisticas, activarClima, buscarAtraccionPorId, unirseAFila,
+  getAtracciones, getZonas, getEstadisticas, activarClima, buscarAtraccionPorId, calcularRuta, unirseAFila,cargarVisitante,getConexionesGrafo,
+  getReporteTotalVisitantes,
+  getReporteAtraccionMasVisitada,
+  getReporteFilaMasLarga,
+  getReporteCierresClima,
+  getAnalisisGrafo,
+  getJerarquiaAdmin,
   type Atraccion, type Zona, type Estadisticas
 } from "@/lib/api"
 
@@ -20,6 +26,7 @@ const navItems = [
   { id: "usuario", label: "Panel Usuario", icon: User },
   { id: "admin", label: "Administración", icon: Settings },
   { id: "stats", label: "Estadísticas", icon: BarChart3 },
+  { id: "operador", label: "Panel Operador", icon: Settings }
 ]
 export default function TechParkDashboard() {
   const [activePanel, setActivePanel] = useState("inicio")
@@ -33,6 +40,23 @@ export default function TechParkDashboard() {
   const [climaActual, setClimaActual] = useState("SOLEADO")
   const [mensajeClima, setMensajeClima] = useState("Todas las atracciones funcionan normalmente")
   const [loadingClima, setLoadingClima] = useState(false)
+  const [origenRuta, setOrigenRuta] = useState("A1")
+  const [destinoRuta, setDestinoRuta] = useState("A6")
+  const [resultadoRuta, setResultadoRuta] = useState<any>(null)
+  const [visitante, setVisitante] = useState<any>(null)
+  const [filaActual, setFilaActual] = useState<any>(null)
+  const [favoritos, setFavoritos] = useState<string[]>([])
+  const [historial, setHistorial] = useState<string[]>([])
+  const [atraccionOperador, setAtraccionOperador] = useState("")
+  const [mensajeOperador, setMensajeOperador] = useState("")
+  const [conexionesGrafo, setConexionesGrafo] = useState<any>(null)
+  const [reporteTotalVisitantes, setReporteTotalVisitantes] = useState<any>(null)
+  const [reporteMasVisitada, setReporteMasVisitada] = useState<any>(null)
+  const [reporteFilaLarga, setReporteFilaLarga] = useState<any>(null)
+  const [reporteCierresClima, setReporteCierresClima] = useState<any>(null)
+  const [analisisGrafo, setAnalisisGrafo] = useState<any>(null)
+  const [jerarquiaAdmin, setJerarquiaAdmin] = useState<any[]>([])
+  
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -65,21 +89,175 @@ export default function TechParkDashboard() {
     } catch (error) {
       console.error("Error buscando atraccion:", error)
     }
-  }
+    }
 
-  const manejarFila = async (id: string) => {
-    try {
-      const data = await unirseAFila(id, "Juan", "FAST_PASS")
-
-      alert(
-        data.mensaje +
-        "\nPosicion: " + data.posicion +
-        "\nTiempo estimado: " + data.tiempoEstimado + " min"
+    const cargarDatosAdmin = async () => {
+    
+      try {
+    
+        const conexiones = await getConexionesGrafo()
+    
+        const total = await getReporteTotalVisitantes()
+    
+        const masVisitada = await getReporteAtraccionMasVisitada()
+    
+        const filaLarga = await getReporteFilaMasLarga()
+    
+        const cierres = await getReporteCierresClima()
+    
+        const analisis = await getAnalisisGrafo()
+    
+        const jerarquia = await getJerarquiaAdmin()
+    
+        setConexionesGrafo(conexiones)
+    
+        setReporteTotalVisitantes(total)
+    
+        setReporteMasVisitada(masVisitada)
+    
+        setReporteFilaLarga(filaLarga)
+    
+        setReporteCierresClima(cierres)
+    
+        setAnalisisGrafo(analisis)
+    
+        setJerarquiaAdmin(jerarquia)
+    
+      } catch (error) {
+    
+        console.error("Error cargando datos admin:", error)
+      }
+    }
+    const getAtraccionSeleccionada = () => {
+      return atracciones.find(a => String(a.id) === atraccionOperador)
+    }
+    
+    const validarAccesoOperador = () => {
+      const atraccion = getAtraccionSeleccionada()
+    
+      if (!atraccion) {
+        setMensajeOperador("Seleccione una atracción primero")
+        return
+      }
+    
+      setMensajeOperador(
+        "Acceso validado para " +
+        atraccion.nombre +
+        ". Se revisaron edad, altura y capacidad por ciclo."
       )
+    }
+    
+    const cambiarEstadoOperador = (estado: "ACTIVA" | "CERRADA" | "EN_MANTENIMIENTO") => {
+      const atraccion = getAtraccionSeleccionada()
+    
+      if (!atraccion) {
+        setMensajeOperador("Seleccione una atracción primero")
+        return
+      }
+    
+      const nuevasAtracciones = atracciones.map(a =>
+        String(a.id) === atraccionOperador ? { ...a, estado } : a
+      )
+    
+      setAtracciones(nuevasAtracciones)
+      setMensajeOperador("Estado actualizado para " + atraccion.nombre + ": " + estado)
+    }
+    
+    const procesarFilaOperador = () => {
+      const atraccion = getAtraccionSeleccionada()
+    
+      if (!atraccion) {
+        setMensajeOperador("Seleccione una atracción primero")
+        return
+      }
+    
+      if (atraccion.personasEnFila <= 0) {
+        setMensajeOperador("No hay personas en fila para procesar")
+        return
+      }
+    
+      const personasProcesadas = Math.min(atraccion.personasEnFila, atraccion.capacidadMaxima)
+    
+      const nuevasAtracciones = atracciones.map(a =>
+        String(a.id) === atraccionOperador
+          ? { ...a, personasEnFila: a.personasEnFila - personasProcesadas }
+          : a
+      )
+    
+      setAtracciones(nuevasAtracciones)
+    
+      setMensajeOperador(
+        "Fila procesada en " +
+        atraccion.nombre +
+        ". Ingresaron primero visitantes FAST_PASS. Personas procesadas: " +
+        personasProcesadas
+      )
+    }
 
+    const manejarFila = async (id: string) => {
+      try {
+        const data = await unirseAFila(
+          id,
+          visitante?.nombre || "Visitante",
+          visitante?.ticket || "GENERAL"
+        )
+    
+        const atraccion = atracciones.find(a => String(a.id) === id)
+    
+        setFilaActual(data)
+    
+        if (atraccion) {
+          if (!favoritos.includes(atraccion.nombre)) {
+            setFavoritos([...favoritos, atraccion.nombre])
+          }
+    
+          setHistorial([...historial, atraccion.nombre])
+        }
+    
+        const nuevasAtracciones = await getAtracciones()
+        setAtracciones(nuevasAtracciones)
+    
+        alert(data.mensaje || data.error)
+    
+      } catch (error) {
+        console.error(error)
+        alert("Error al unirse a la fila")
+      }
+    }
+
+  const manejarCargarVisitante = async () => {
+    try {
+      const data = await cargarVisitante()
+      setVisitante(data)
+  
+      if (data.error) {
+        alert(data.error)
+      } else {
+        alert("Visitante cargado correctamente: " + data.nombre)
+      }
+  
     } catch (error) {
-      console.error(error)
-      alert("Error al unirse a la fila")
+      console.error("Error cargando visitante:", error)
+      alert("No se pudo cargar el visitante")
+    }
+  }
+  const manejarRuta = async () => {
+    try {
+      const data = await calcularRuta(origenRuta, destinoRuta)
+      setResultadoRuta(data)
+    } catch (error) {
+      console.error("Error calculando ruta:", error)
+      alert("Error al calcular ruta")
+    }
+  }
+  
+  const agregarFavorito = (nombre: string) => {
+  
+    if (!favoritos.includes(nombre)) {
+  
+      setFavoritos([...favoritos, nombre])
+  
+      alert(nombre + " agregado a favoritos")
     }
   }
 
@@ -159,8 +337,14 @@ export default function TechParkDashboard() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => { setActivePanel(item.id); setSidebarOpen(false) }}
-                  className={cn(
+                  onClick={() => {
+                    setActivePanel(item.id)
+                    setSidebarOpen(false)
+                  
+                    if (item.id === "admin") {
+                      cargarDatosAdmin()
+                    }
+                  }}className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
                     activePanel === item.id
                       ? "bg-sidebar-accent text-primary"
@@ -199,6 +383,7 @@ export default function TechParkDashboard() {
         </header>
 
         <div className="p-6 lg:p-8">
+          
 
           {/* ── PANEL INICIO ── */}
           {activePanel === "inicio" && (
@@ -357,76 +542,263 @@ export default function TechParkDashboard() {
           {/* ── PANEL USUARIO ── */}
           {activePanel === "usuario" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">Panel del Visitante</h2>
-                <p className="text-muted-foreground mt-1">Estado actual de las atracciones y tiempos de espera</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {atracciones.map((atraccion) => (
-                  <Card key={atraccion.id} className={cn("bg-card border-border", atraccion.estado !== "ACTIVA" && "opacity-50")}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-semibold text-foreground">{atraccion.nombre}</CardTitle>
-                        {getEstadoBadge(atraccion.estado)}
+            {filaActual && (
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle>Fila Virtual Actual</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>{filaActual.mensaje}</p>
+                  <p>Posición: {filaActual.posicion}</p>
+                  <p>Tiempo estimado: {filaActual.tiempoEstimado} min</p>
+                  <p>Ticket: {filaActual.tipoTicket}</p>
+                </CardContent>
+              </Card>
+            )}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle>Favoritos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {favoritos.length === 0 ? (
+                    <p>No hay favoritos</p>
+                  ) : (
+                    favoritos.map((f, i) => <p key={i}>{f}</p>)
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle>Historial</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {historial.length === 0 ? (
+                    <p>No hay visitas registradas</p>
+                  ) : (
+                    historial.map((h, i) => <p key={i}>{h}</p>)
+                  )}
+                </CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <User className="w-5 h-5 text-primary" />
+                    Perfil del Visitante
+                  </CardTitle>
+                </CardHeader>
+              
+                <CardContent className="space-y-4">
+                  <Button onClick={manejarCargarVisitante}>
+                    Cargar visitante desde archivo
+                  </Button>
+              
+                  {visitante && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">Nombre</p>
+                        <p className="font-semibold text-foreground">{visitante.nombre}</p>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0 space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="w-4 h-4" />
-                        <span>Espera: {atraccion.estado === "ACTIVA" ? `${atraccion.tiempoEsperaMinutos} min` : "No disponible"}</span>
+              
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">Documento</p>
+                        <p className="font-semibold text-foreground">{visitante.documento}</p>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="w-4 h-4" />
-                        <span>En fila: {atraccion.personasEnFila} / {atraccion.capacidadMaxima}</span>
+              
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">Edad</p>
+                        <p className="font-semibold text-foreground">{visitante.edad}</p>
                       </div>
-                      {atraccion.estado === "ACTIVA" && (
-                        <Button size="sm" className="w-full mt-2" variant="outline">
-                          Unirse a la fila
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
+              
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">Estatura</p>
+                        <p className="font-semibold text-foreground">{visitante.estatura}</p>
+                      </div>
+              
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">Saldo virtual</p>
+                        <p className="font-semibold text-primary">${visitante.saldo}</p>
+                      </div>
+              
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">Ticket</p>
+                        <Badge className="bg-primary/20 text-primary">
+                          {visitante.ticket}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+          
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-foreground">
                     <Navigation className="w-5 h-5 text-primary" />
-                    Ruta Sugerida
+                    Calcular Ruta Óptima
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {atracciones.filter(a => a.estado === "ACTIVA").slice(0, 4).map((a, index) => (
-                      <div key={a.id} className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
-                          index === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                        )}>
-                          {index + 1}
-                        </div>
-                        <span className={cn("text-sm", index === 0 ? "font-medium text-foreground" : "text-muted-foreground")}>{a.nombre}</span>
-                        {index === 0 && <Badge className="ml-auto bg-primary/20 text-primary">Menor espera</Badge>}
-                      </div>
-                    ))}
+          
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          
+                    <input
+                      type="text"
+                      value={origenRuta}
+                      onChange={(e) => setOrigenRuta(e.target.value)}
+                      placeholder="Origen Ej: A1"
+                      className="px-3 py-2 rounded-md border border-border bg-background text-foreground"
+                    />
+          
+                    <input
+                      type="text"
+                      value={destinoRuta}
+                      onChange={(e) => setDestinoRuta(e.target.value)}
+                      placeholder="Destino Ej: A6"
+                      className="px-3 py-2 rounded-md border border-border bg-background text-foreground"
+                    />
+          
+                    <Button onClick={manejarRuta}>
+                      Calcular ruta
+                    </Button>
+          
                   </div>
+          
+                  {resultadoRuta && (
+                    <div className="p-4 rounded-lg bg-secondary border border-border">
+          
+                      {resultadoRuta.mensaje ? (
+          
+                        <p className="text-sm text-destructive">
+                          {resultadoRuta.mensaje}
+                        </p>
+          
+                      ) : (
+          
+                        <>
+                          <p className="text-sm text-foreground">
+                            Ruta: {resultadoRuta.ruta.join(" → ")}
+                          </p>
+          
+                          <p className="text-sm text-muted-foreground">
+                            Paradas: {resultadoRuta.cantidadParadas}
+                          </p>
+                        </>
+          
+                      )}
+          
+                    </div>
+                  )}
+          
                 </CardContent>
               </Card>
+          
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Panel del Visitante
+                </h2>
+          
+                <p className="text-muted-foreground mt-1">
+                  Estado actual de las atracciones y tiempos de espera
+                </p>
+              </div>
+          
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+                {atracciones.map((atraccion) => (
+          
+                  <Card
+                    key={atraccion.id}
+                    className={cn(
+                      "bg-card border-border",
+                      atraccion.estado !== "ACTIVA" && "opacity-50"
+                    )}
+                    
+                  >
+          
+                    <CardHeader className="pb-2">
+          
+                      <div className="flex items-center justify-between">
+          
+                        <CardTitle className="text-sm font-semibold text-foreground">
+                          {atraccion.nombre}
+                        </CardTitle>
+          
+                        {getEstadoBadge(atraccion.estado)}
+          
+                      </div>
+          
+                    </CardHeader>
+          
+                    <CardContent className="pt-0 space-y-2">
+          
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        <span>
+                          Espera: {atraccion.estado === "ACTIVA"
+                            ? `${atraccion.tiempoEsperaMinutos} min`
+                            : "No disponible"}
+                        </span>
+                      </div>
+          
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="w-4 h-4" />
+                        <span>
+                          En fila: {atraccion.personasEnFila} / {atraccion.capacidadMaxima}
+                        </span>
+                      </div>
+          
+                      {atraccion.estado === "ACTIVA" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="w-full mt-2"
+                            variant="outline"
+                            onClick={() => manejarFila(String(atraccion.id))}
+                          >
+                            Unirse a la fila
+                          </Button>
+                      
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full mt-2"
+                            onClick={() => agregarFavorito(atraccion.nombre)}
+                          >
+                            Agregar a favoritos
+                          </Button>
+                        </>
+                      )}
+                    </CardContent>
+          
+                  </Card>
+                                  ))}
+          
+              </div>
+          
             </div>
-          )}
+                  )}
 
           {/* ── PANEL ADMIN ── */}
           {activePanel === "admin" && (
             <div className="space-y-6">
+          
               <div>
-                <h2 className="text-2xl font-bold text-foreground">Panel de Administración</h2>
-                <p className="text-muted-foreground mt-1">Gestión de zonas y control de contingencias climáticas</p>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Panel de Administración
+                </h2>
+          
+                <p className="text-muted-foreground mt-1">
+                  Gestión global del parque y análisis del sistema
+                </p>
               </div>
-
+          
               {/* Zonas */}
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-3">Zonas del Parque</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Zonas del Parque
+                </h3>
+          
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {zonas.map((zona) => (
                     <Card key={zona.id} className="bg-card border-border">
@@ -434,59 +806,334 @@ export default function TechParkDashboard() {
                         <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center mb-3">
                           <Map className="w-5 h-5 text-primary" />
                         </div>
-                        <h4 className="font-semibold text-foreground">{zona.nombre}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">Capacidad: {zona.capacidad}</p>
-                        <Badge className="mt-2 bg-primary/20 text-primary">{zona.id}</Badge>
+          
+                        <h4 className="font-semibold text-foreground">
+                          {zona.nombre}
+                        </h4>
+          
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Capacidad: {zona.capacidad}
+                        </p>
+          
+                        <Badge className="mt-2 bg-primary/20 text-primary">
+                          {zona.id}
+                        </Badge>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
               </div>
-
+          
+              {/* Análisis del Grafo */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Análisis del Grafo
+                </h3>
+          
+                <Card className="bg-card border-border">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="p-4 rounded-lg bg-secondary">
+                      <p className="font-semibold text-foreground">
+                        Conectividad del Parque
+                      </p>
+          
+                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        {conexionesGrafo?.conexiones ? (
+                          Object.entries(conexionesGrafo.conexiones).map(([origen, destinos]: any) => (
+                            <div key={String(origen)}>
+                              <span className="font-medium text-foreground">
+                                {String(origen)}
+                              </span>
+                              {" ↔ "}
+                              {Array.isArray(destinos) ? destinos.join(", ") : "Sin conexiones"}
+                            </div>
+                          ))
+                        ) : (
+                          <p>Sin datos de conexiones</p>
+                        )}
+                      </div>
+                    </div>
+          
+                    <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                      <p className="font-semibold text-foreground">
+                        Atracción más conectada
+                      </p>
+          
+                      <div className="text-sm text-muted-foreground mt-1">
+                        <p>
+                          {analisisGrafo?.atraccionMasConectada || "Sin datos"}
+                        </p>
+          
+                        <p className="mt-2">
+                          Cluster popular: {analisisGrafo?.clusterPopular || "Sin datos"}
+                        </p>
+          
+                        <p className="mt-2">
+                          Total nodos: {analisisGrafo?.totalNodos || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+          
+              {/* Gestión Jerárquica */}
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Gestión Jerárquica
+                </h3>
+          
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-foreground">
+                        Supervisión de Operadores
+                      </CardTitle>
+                    </CardHeader>
+          
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
+                      {jerarquiaAdmin.length > 0 ? (
+                        jerarquiaAdmin.map((item, index) => (
+                          <p key={index}>
+                            {item.operador} → {item.zona}
+                          </p>
+                        ))
+                      ) : (
+                        <p>Sin datos de operadores</p>
+                      )}
+                    </CardContent>
+                  </Card>
+          
+                  <Card className="bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-foreground">
+                        Supervisión de Zonas
+                      </CardTitle>
+                    </CardHeader>
+          
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
+                      {jerarquiaAdmin.length > 0 ? (
+                        jerarquiaAdmin.map((item, index) => (
+                          <p key={index}>
+                            {item.zona} → {item.atraccionesAsignadas} atracciones
+                          </p>
+                        ))
+                      ) : (
+                        <p>Sin datos de zonas</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+          
+          
               {/* Clima */}
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-3">Control Climático</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Control Climático
+                </h3>
+          
                 <Card className="bg-card border-border">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-secondary">
                       {getClimaIcon()}
+          
                       <div>
-                        <p className="font-medium text-foreground">Clima actual: {climaActual}</p>
-                        <p className="text-sm text-muted-foreground">{mensajeClima}</p>
+                        <p className="font-medium text-foreground">
+                          Clima actual: {climaActual}
+                        </p>
+          
+                        <p className="text-sm text-muted-foreground">
+                          {mensajeClima}
+                        </p>
                       </div>
                     </div>
+          
                     <div className="flex gap-3 flex-wrap">
                       <Button
-                        onClick={() => cambiarClima('soleado')}
+                        onClick={() => cambiarClima("soleado")}
                         disabled={loadingClima}
                         className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30"
                         variant="outline"
                       >
-                        <Sun className="w-4 h-4 mr-2" /> Soleado
+                        <Sun className="w-4 h-4 mr-2" />
+                        Soleado
                       </Button>
+          
                       <Button
-                        onClick={() => cambiarClima('lluvia')}
+                        onClick={() => cambiarClima("lluvia")}
                         disabled={loadingClima}
                         className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30"
                         variant="outline"
                       >
-                        <CloudRain className="w-4 h-4 mr-2" /> Lluvia
+                        <CloudRain className="w-4 h-4 mr-2" />
+                        Lluvia
                       </Button>
+          
                       <Button
-                        onClick={() => cambiarClima('tormenta')}
+                        onClick={() => cambiarClima("tormenta")}
                         disabled={loadingClima}
                         className="bg-destructive/20 text-destructive hover:bg-destructive/30 border border-destructive/30"
                         variant="outline"
                       >
-                        <CloudLightning className="w-4 h-4 mr-2" /> Tormenta
+                        <CloudLightning className="w-4 h-4 mr-2" />
+                        Tormenta
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+          
             </div>
           )}
-
+             
+      
+          {/* ── PANEL OPERADOR ── */}
+          {activePanel === "operador" && (
+            <div className="space-y-6">
+          
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Panel Operador
+                </h2>
+          
+                <p className="text-muted-foreground mt-1">
+                  Gestión de atracciones y control de acceso
+                </p>
+              </div>
+          
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <Settings className="w-5 h-5 text-primary" />
+                    Gestión de Atracción
+                  </CardTitle>
+                </CardHeader>
+          
+                <CardContent className="space-y-4">
+          
+                  <select
+                    value={atraccionOperador}
+                    onChange={(e) => setAtraccionOperador(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+                  >
+                    <option value="">Seleccione una atracción</option>
+          
+                    {atracciones.map((atraccion) => (
+                      <option key={atraccion.id} value={atraccion.id}>
+                        {atraccion.nombre}
+                      </option>
+                    ))}
+                  </select>
+          
+                  {getAtraccionSeleccionada() && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">
+                          Estado actual
+                        </p>
+          
+                        <p className="font-semibold text-foreground">
+                          {getAtraccionSeleccionada()?.estado}
+                        </p>
+                      </div>
+          
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">
+                          Personas en fila
+                        </p>
+          
+                        <p className="font-semibold text-foreground">
+                          {getAtraccionSeleccionada()?.personasEnFila}
+                        </p>
+                      </div>
+          
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">
+                          Capacidad por ciclo
+                        </p>
+          
+                        <p className="font-semibold text-foreground">
+                          {getAtraccionSeleccionada()?.capacidadMaxima}
+                        </p>
+                      </div>
+          
+                      <div className="p-3 rounded-lg bg-secondary">
+                        <p className="text-xs text-muted-foreground">
+                          Tiempo espera
+                        </p>
+          
+                        <p className="font-semibold text-foreground">
+                          {getAtraccionSeleccionada()?.tiempoEsperaMinutos} min
+                        </p>
+                      </div>
+          
+                    </div>
+                  )}
+          
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          
+                    <Button
+                      variant="outline"
+                      onClick={validarAccesoOperador}
+                    >
+                      Validar acceso
+                    </Button>
+          
+                    <Button
+                      variant="outline"
+                      onClick={() => cambiarEstadoOperador("CERRADA")}
+                    >
+                      Cerrar atracción
+                    </Button>
+          
+                    <Button
+                      variant="outline"
+                      onClick={() => cambiarEstadoOperador("EN_MANTENIMIENTO")}
+                    >
+                      Enviar a mantenimiento
+                    </Button>
+          
+                    <Button
+                      variant="outline"
+                      onClick={() => cambiarEstadoOperador("ACTIVA")}
+                    >
+                      Reactivar atracción
+                    </Button>
+          
+                    <Button
+                      onClick={() => {
+                        setMensajeOperador(
+                          "Revisión técnica registrada correctamente"
+                        )
+                      }}
+                    >
+                      Registrar revisión técnica
+                    </Button>
+          
+                    <Button
+                      className="bg-primary text-primary-foreground"
+                      onClick={procesarFilaOperador}
+                    >
+                      Procesar fila FAST_PASS
+                    </Button>
+          
+                  </div>
+          
+                  {mensajeOperador && (
+                    <div className="p-4 rounded-lg bg-secondary border border-border">
+                      <p className="text-sm text-foreground">
+                        {mensajeOperador}
+                      </p>
+                    </div>
+                  )}
+          
+                </CardContent>
+              </Card>
+          
+            </div>
+          )}
           {/* ── PANEL STATS ── */}
           {activePanel === "stats" && (
             <div className="space-y-6">

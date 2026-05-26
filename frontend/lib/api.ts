@@ -172,3 +172,60 @@ export async function calcularRuta(origen: string, destino: string) {
 
   return res.json()
 }
+
+export async function cargarVisitante() {
+  const res = await fetch(`${API_BASE_URL}/visitante/cargar`)
+  if (!res.ok) throw new Error("Error al cargar visitante")
+  return res.json()
+}
+
+export async function getConexionesGrafo() {
+  const res = await fetch(`${API_BASE_URL}/rutas/conexiones`)
+  if (!res.ok) throw new Error("Error al obtener conexiones del grafo")
+  return res.json()
+}
+
+export async function getReporteTotalVisitantes() {
+  const res = await fetch(`${API_BASE_URL}/reportes/total-visitantes`)
+  if (!res.ok) throw new Error("Error al obtener total de visitantes")
+  return res.json()
+}
+
+export async function getReporteAtraccionMasVisitada() {
+  const res = await fetch(`${API_BASE_URL}/reportes/atraccion-mas-visitada`)
+  if (!res.ok) throw new Error("Error al obtener atraccion mas visitada")
+  return res.json()
+}
+
+export async function getReporteFilaMasLarga() {
+  const res = await fetch(`${API_BASE_URL}/reportes/fila-mas-larga`)
+  if (!res.ok) throw new Error("Error al obtener fila mas larga")
+  return res.json()
+}
+
+export async function getReporteCierresClima() {
+  const res = await fetch(`${API_BASE_URL}/reportes/cierres-clima`)
+  if (!res.ok) throw new Error("Error al obtener cierres por clima")
+  return res.json()
+}
+
+export async function getAnalisisGrafo() {
+  const res = await fetch(`${API_BASE_URL}/rutas/analisis`)
+
+  if (!res.ok) {
+    throw new Error("Error al obtener analisis del grafo")
+  }
+
+  return res.json()
+}
+
+export async function getJerarquiaAdmin() {
+  const res = await fetch(`${API_BASE_URL}/admin/jerarquia`)
+
+  if (!res.ok) {
+    throw new Error("Error al obtener jerarquia")
+  }
+
+  return res.json()
+}
+
