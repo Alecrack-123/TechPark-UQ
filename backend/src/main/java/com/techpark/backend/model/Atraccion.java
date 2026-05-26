@@ -15,6 +15,7 @@ public class Atraccion {
     private EstadoAtraccion estado;
     private String motivoCierre;
     private ColaPrioridad filaVirtual;
+    private boolean filaPausada;
 
     // Constructor
     public Atraccion(String id, String nombre, TipoAtraccion tipo, int capacidadPorCiclo,
@@ -31,6 +32,7 @@ public class Atraccion {
         this.estado = EstadoAtraccion.ACTIVA;
         this.motivoCierre = "";
         this.filaVirtual = new ColaPrioridad();
+        this.filaPausada = false;
     }
 
     public String getId() {
@@ -193,4 +195,15 @@ public class Atraccion {
         return filaVirtual.size();
     }
 
+    public boolean isFilaPausada() {
+        return filaPausada;
+    }
+
+    public void pausarFila() {
+        this.filaPausada = true;
+    }
+
+    public void reanudarFila() {
+        this.filaPausada = false;
+    }
 }

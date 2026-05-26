@@ -1,8 +1,12 @@
 package com.techpark.backend;
 
 import com.techpark.backend.model.*;
+import com.techpark.backend.controller.AtraccionController;
+import com.techpark.backend.service.ParqueData;
 import com.techpark.backend.structures.*;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -98,5 +102,62 @@ public class TechParkTest {
         Atraccion atraccion = new Atraccion("A1", "Montaña Rusa", TipoAtraccion.MECANICA_ALTURA, 20, 1.50, 12, 0);
 
         assertFalse(visitante.puedeIngresar(atraccion));
+    }
+
+    @Test
+    public void pruebaCompraTicketActualizaAforoEIngresos() {
+        ParqueData.cargarEscenarioInicial();
+
+        Map<String, Object> respuesta = ParqueData.comprarTicket("Laura", "9001", 22, 1.68, 90000, TipoTicket.FAST_PASS, "Z1");
+        Map<String, Object> aforo = ParqueData.getAforo();
+
+        assertFalse(respuesta.containsKey("error"));
+        assertEquals(1, aforo.get("ocupacionParque"));
+        assertEquals(1, ParqueData.getOcupacionZona("Z1"));
+        assertEquals(1, ParqueData.getTicketsVendidos());
+        assertEquals(80000.0, ParqueData.getIngresosTickets());
+    }
+
+    @Test
+    public void pruebaFilaDemoPuedePausarseYDetenerAvance() {
+        ParqueData.cargarEscenarioInicial();
+        AtraccionController controller = new AtraccionController();
+
+        Map<String, Object> demo = controller.agregarVisitantesDemo("A1", Map.of("cantidad", "6"));
+        Map<String, Object> pausa = controller.actualizarPausaFila("A1", Map.of("pausada", "true"));
+        Map<String, Object> proceso = controller.procesarFila("A1");
+
+        assertEquals(6, demo.get("agregados"));
+        assertEquals("Fila pausada", pausa.get("mensaje"));
+        assertEquals("La fila esta pausada por el operador", proceso.get("error"));
+        assertEquals(6, ParqueData.getArbolAtracciones().buscar("A1").getCantidadEnFila());
+    }
+
+    @Test
+    public void pruebaGrafoRutaMasCortaConPeso() {
+        GrafoParque grafo = new GrafoParque();
+
+        grafo.conectar("A1", "A2", 10);
+        grafo.conectar("A1", "A3", 2);
+        grafo.conectar("A3", "A2", 3);
+
+        GrafoParque.ResultadoRuta resultado = grafo.buscarRutaMasCorta("A1", "A2");
+
+        assertEquals(5, resultado.getDistanciaTotal());
+        assertEquals("A3", resultado.getRuta().get(1));
+    }
+
+    @Test
+    public void pruebaArbolAtraccionesEliminar() {
+        ArbolAtracciones arbol = new ArbolAtracciones();
+        Atraccion atraccion1 = new Atraccion("A1", "MontaÃ±a Rusa", TipoAtraccion.MECANICA_ALTURA, 20, 1.50, 12, 0);
+        Atraccion atraccion2 = new Atraccion("A2", "Carrusel", TipoAtraccion.INFANTIL, 15, 1.00, 5, 0);
+
+        arbol.insertar(atraccion1);
+        arbol.insertar(atraccion2);
+
+        assertTrue(arbol.eliminar("A1"));
+        assertNull(arbol.buscar("A1"));
+        assertNotNull(arbol.buscar("A2"));
     }
 }

@@ -6,6 +6,10 @@ public class ArbolEmpleados {
 
     private NodoArbol raiz;
 
+    public void limpiar() {
+        raiz = null;
+    }
+
     public void insertar(Empleado empleado) {
         raiz = insertar(raiz, empleado);
     }

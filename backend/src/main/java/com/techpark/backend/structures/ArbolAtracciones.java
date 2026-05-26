@@ -13,6 +13,10 @@ public class ArbolAtracciones {
         this.raiz = null;
     }
 
+    public void limpiar() {
+        this.raiz = null;
+    }
+
     public void insertar(Atraccion atraccion) {
         raiz = insertarRecursivo(raiz, atraccion);
     }
@@ -51,6 +55,52 @@ public class ArbolAtracciones {
         List<Atraccion> lista = new ArrayList<>();
         listarEnOrdenRecursivo(raiz, lista);
         return lista;
+    }
+
+    public boolean eliminar(String id) {
+        if (buscarPorId(id) == null) {
+            return false;
+        }
+
+        raiz = eliminarRecursivo(raiz, id);
+        return true;
+    }
+
+    private NodoArbol eliminarRecursivo(NodoArbol actual, String id) {
+        if (actual == null) {
+            return null;
+        }
+
+        if (id.compareTo(actual.atraccion.getId()) < 0) {
+            actual.izquierda = eliminarRecursivo(actual.izquierda, id);
+            return actual;
+        }
+
+        if (id.compareTo(actual.atraccion.getId()) > 0) {
+            actual.derecha = eliminarRecursivo(actual.derecha, id);
+            return actual;
+        }
+
+        if (actual.izquierda == null) {
+            return actual.derecha;
+        }
+
+        if (actual.derecha == null) {
+            return actual.izquierda;
+        }
+
+        NodoArbol sucesor = encontrarMinimo(actual.derecha);
+        actual.atraccion = sucesor.atraccion;
+        actual.derecha = eliminarRecursivo(actual.derecha, sucesor.atraccion.getId());
+        return actual;
+    }
+
+    private NodoArbol encontrarMinimo(NodoArbol nodo) {
+        while (nodo.izquierda != null) {
+            nodo = nodo.izquierda;
+        }
+
+        return nodo;
     }
 
     private void listarEnOrdenRecursivo(NodoArbol nodo, List<Atraccion> lista) {

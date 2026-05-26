@@ -2,13 +2,17 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
 export interface Atraccion {
-  id: number
+  id: string
   nombre: string
   tipo: string
   capacidadMaxima: number
   tiempoEsperaMinutos: number
   estado: 'ACTIVA' | 'CERRADA' | 'EN_MANTENIMIENTO'
   personasEnFila: number
+  contadorVisitantes?: number
+  motivoCierre?: string
+  zonaId?: string
+  filaPausada?: boolean
 }
 
 export interface Usuario {
@@ -29,6 +33,8 @@ export interface Zona {
   id: string
   nombre: string
   capacidad: number
+  ocupacion?: number
+  cupos?: number
 }
 
 export interface Estadisticas {
@@ -36,6 +42,37 @@ export interface Estadisticas {
   atraccionesActivas: number
   totalPersonasEnFila: number
   tiempoPromedioEspera: number
+  capacidadParque?: number
+  ocupacionParque?: number
+  ticketsVendidos?: number
+  ingresosTickets?: number
+}
+
+export interface ZonaAforo {
+  id: string
+  nombre: string
+  capacidad: number
+  ocupacion: number
+  cupos: number
+}
+
+export interface AforoParque {
+  capacidadParque: number
+  ocupacionParque: number
+  cuposParque: number
+  ticketsVendidos: number
+  ingresosTickets: number
+  zonas: ZonaAforo[]
+}
+
+export interface CompraTicketPayload {
+  nombre: string
+  documento: string
+  edad: number
+  estatura: number
+  saldo: number
+  tipoTicket: 'GENERAL' | 'FAMILIAR' | 'FAST_PASS'
+  zonaIngresoId: string
 }
 
 export interface ResultadoClima {
@@ -51,6 +88,16 @@ export interface ResultadoFila {
   tipoTicket?: string
 }
 
+export interface ResultadoRuta {
+  origen: string
+  destino: string
+  ruta?: string[]
+  cantidadParadas?: number
+  distanciaTotal?: number
+  algoritmo?: string
+  mensaje?: string
+}
+
 // Funciones para el API de Atracciones
 export async function getAtracciones(): Promise<Atraccion[]> {
   const res = await fetch(`${API_BASE_URL}/parque/atracciones`)
@@ -58,13 +105,13 @@ export async function getAtracciones(): Promise<Atraccion[]> {
   return res.json()
 }
 
-export async function getAtraccion(id: number): Promise<Atraccion> {
+export async function getAtraccion(id: string | number): Promise<Atraccion> {
   const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}`)
   if (!res.ok) throw new Error('Error al obtener atracción')
   return res.json()
 }
 
-export async function actualizarEstadoAtraccion(id: number, estado: string): Promise<Atraccion> {
+export async function actualizarEstadoAtraccion(id: string | number, estado: string): Promise<Atraccion> {
   const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/estado`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -74,16 +121,53 @@ export async function actualizarEstadoAtraccion(id: number, estado: string): Pro
   return res.json()
 }
 
+export async function registrarRevisionAtraccion(id: string | number): Promise<Atraccion> {
+  const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/revision`, {
+    method: 'POST'
+  })
+  if (!res.ok) throw new Error('Error al registrar revision')
+  return res.json()
+}
+
+export async function procesarFilaAtraccion(id: string | number) {
+  const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/procesar-fila`, {
+    method: 'POST'
+  })
+  if (!res.ok) throw new Error('Error al procesar fila')
+  return res.json()
+}
+
+export async function generarVisitantesDemo(id: string | number, cantidad: number) {
+  const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/fila/demo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cantidad })
+  })
+  if (!res.ok) throw new Error('Error al generar visitantes demo')
+  return res.json()
+}
+
+export async function actualizarPausaFila(id: string | number, pausada: boolean) {
+  const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/fila/pausa`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pausada })
+  })
+  if (!res.ok) throw new Error('Error al actualizar pausa de fila')
+  return res.json()
+}
+
 // Funciones para Fila Virtual
 export async function unirseAFila(
   id: string,
   nombre: string,
-  tipoTicket: string
+  tipoTicket: string,
+  datosVisitante?: { edad?: number; estatura?: number; saldo?: number }
 ): Promise<ResultadoFila> {
   const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}/fila`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre, tipoTicket })
+    body: JSON.stringify({ nombre, tipoTicket, ...datosVisitante })
   })
 
   if (!res.ok) throw new Error('Error al unirse a la fila')
@@ -150,7 +234,7 @@ export async function crearAtraccion(atraccion: Omit<Atraccion, 'id'>): Promise<
   return res.json()
 }
 
-export async function eliminarAtraccion(id: number): Promise<void> {
+export async function eliminarAtraccion(id: string | number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/parque/atracciones/${id}`, {
     method: 'DELETE'
   })
@@ -163,7 +247,7 @@ export async function buscarAtraccionPorId(id: string) {
   return res.json()
 }
 
-export async function calcularRuta(origen: string, destino: string) {
+export async function calcularRuta(origen: string, destino: string): Promise<ResultadoRuta> {
   const res = await fetch(`${API_BASE_URL}/rutas/${origen}/${destino}`)
 
   if (!res.ok) {
@@ -176,6 +260,28 @@ export async function calcularRuta(origen: string, destino: string) {
 export async function cargarVisitante() {
   const res = await fetch(`${API_BASE_URL}/visitante/cargar`)
   if (!res.ok) throw new Error("Error al cargar visitante")
+  return res.json()
+}
+
+export async function cargarEscenarioInicial() {
+  const res = await fetch(`${API_BASE_URL}/datos/cargar-escenario`)
+  if (!res.ok) throw new Error("Error al cargar escenario inicial")
+  return res.json()
+}
+
+export async function getAforo(): Promise<AforoParque> {
+  const res = await fetch(`${API_BASE_URL}/aforo`)
+  if (!res.ok) throw new Error("Error al obtener aforo")
+  return res.json()
+}
+
+export async function comprarTicket(payload: CompraTicketPayload) {
+  const res = await fetch(`${API_BASE_URL}/tickets/comprar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error("Error al comprar ticket")
   return res.json()
 }
 
@@ -206,6 +312,30 @@ export async function getReporteFilaMasLarga() {
 export async function getReporteCierresClima() {
   const res = await fetch(`${API_BASE_URL}/reportes/cierres-clima`)
   if (!res.ok) throw new Error("Error al obtener cierres por clima")
+  return res.json()
+}
+
+export async function getReporteIngresosDiarios() {
+  const res = await fetch(`${API_BASE_URL}/reportes/ingresos-diarios`)
+  if (!res.ok) throw new Error("Error al obtener ingresos diarios")
+  return res.json()
+}
+
+export async function getReporteAlertasMantenimiento() {
+  const res = await fetch(`${API_BASE_URL}/reportes/alertas-mantenimiento`)
+  if (!res.ok) throw new Error("Error al obtener alertas de mantenimiento")
+  return res.json()
+}
+
+export async function getReporteIncidentesOperativos() {
+  const res = await fetch(`${API_BASE_URL}/reportes/incidentes-operativos`)
+  if (!res.ok) throw new Error("Error al obtener incidentes operativos")
+  return res.json()
+}
+
+export async function getNotificaciones() {
+  const res = await fetch(`${API_BASE_URL}/notificaciones`)
+  if (!res.ok) throw new Error("Error al obtener notificaciones")
   return res.json()
 }
 

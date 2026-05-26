@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,17 +8,30 @@ import {
   Map, User, Settings, BarChart3, Clock, Users, AlertTriangle,
   CheckCircle2, XCircle, Zap, Timer, TrendingUp, Ticket,
   Navigation, CloudSun, Menu, X, CloudRain, CloudLightning, Sun,
+  MapPin, Layers, LocateFixed,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  getAtracciones, getZonas, getEstadisticas, activarClima, buscarAtraccionPorId, calcularRuta, unirseAFila,cargarVisitante,getConexionesGrafo,
+  getAtracciones, getZonas, getEstadisticas, activarClima, buscarAtraccionPorId, calcularRuta, unirseAFila, cargarVisitante, getConexionesGrafo,
+  getAforo,
+  comprarTicket,
   getReporteTotalVisitantes,
   getReporteAtraccionMasVisitada,
   getReporteFilaMasLarga,
   getReporteCierresClima,
+  getReporteIngresosDiarios,
+  getReporteAlertasMantenimiento,
+  getReporteIncidentesOperativos,
   getAnalisisGrafo,
   getJerarquiaAdmin,
-  type Atraccion, type Zona, type Estadisticas
+  actualizarEstadoAtraccion,
+  registrarRevisionAtraccion,
+  procesarFilaAtraccion,
+  generarVisitantesDemo,
+  actualizarPausaFila,
+  cargarEscenarioInicial,
+  getNotificaciones,
+  type Atraccion, type Zona, type Estadisticas, type AforoParque
 } from "@/lib/api"
 
 const navItems = [
@@ -28,6 +41,69 @@ const navItems = [
   { id: "stats", label: "Estadísticas", icon: BarChart3 },
   { id: "operador", label: "Panel Operador", icon: Settings }
 ]
+const zoneLayouts = [
+  {
+    id: "Z1",
+    nombre: "Zona Aventura",
+    capacidad: 100,
+    x: 4,
+    y: 6,
+    width: 44,
+    height: 38,
+    className: "border-primary/45 bg-primary/10 hover:bg-primary/15",
+    accentClass: "bg-primary",
+  },
+  {
+    id: "Z2",
+    nombre: "Zona Infantil",
+    capacidad: 80,
+    x: 54,
+    y: 7,
+    width: 40,
+    height: 32,
+    className: "border-chart-5/45 bg-chart-5/10 hover:bg-chart-5/15",
+    accentClass: "bg-chart-5",
+  },
+  {
+    id: "Z3",
+    nombre: "Zona Acuatica",
+    capacidad: 120,
+    x: 5,
+    y: 51,
+    width: 49,
+    height: 41,
+    className: "border-chart-2/45 bg-chart-2/10 hover:bg-chart-2/15",
+    accentClass: "bg-chart-2",
+  },
+  {
+    id: "Z4",
+    nombre: "Zona de Comidas",
+    capacidad: 60,
+    x: 61,
+    y: 48,
+    width: 34,
+    height: 42,
+    className: "border-chart-3/45 bg-chart-3/10 hover:bg-chart-3/15",
+    accentClass: "bg-chart-3",
+  },
+] as const
+
+const attractionMapPositions: Record<string, { zoneId: string; x: number; y: number }> = {
+  A1: { zoneId: "Z1", x: 21, y: 25 },
+  A3: { zoneId: "Z1", x: 39, y: 20 },
+  A4: { zoneId: "Z2", x: 73, y: 24 },
+  A2: { zoneId: "Z3", x: 28, y: 72 },
+  A5: { zoneId: "Z4", x: 73, y: 61 },
+  A6: { zoneId: "Z4", x: 84, y: 77 },
+}
+
+const zoneByAttractionType: Record<string, string> = {
+  MECANICA_ALTURA: "Z1",
+  INFANTIL: "Z2",
+  ACUATICA: "Z3",
+  SIMULADOR: "Z4",
+}
+
 export default function TechParkDashboard() {
   const [activePanel, setActivePanel] = useState("inicio")
   const [atracciones, setAtracciones] = useState<Atraccion[]>([])
@@ -44,32 +120,48 @@ export default function TechParkDashboard() {
   const [destinoRuta, setDestinoRuta] = useState("A6")
   const [resultadoRuta, setResultadoRuta] = useState<any>(null)
   const [visitante, setVisitante] = useState<any>(null)
+  const [aforo, setAforo] = useState<AforoParque | null>(null)
+  const [tipoTicketCompra, setTipoTicketCompra] = useState<"GENERAL" | "FAMILIAR" | "FAST_PASS">("GENERAL")
+  const [zonaIngresoTicket, setZonaIngresoTicket] = useState("Z1")
+  const [mensajeTicket, setMensajeTicket] = useState("")
   const [filaActual, setFilaActual] = useState<any>(null)
   const [favoritos, setFavoritos] = useState<string[]>([])
   const [historial, setHistorial] = useState<string[]>([])
   const [atraccionOperador, setAtraccionOperador] = useState("")
+  const [cantidadDemoFila, setCantidadDemoFila] = useState(10)
   const [mensajeOperador, setMensajeOperador] = useState("")
   const [conexionesGrafo, setConexionesGrafo] = useState<any>(null)
   const [reporteTotalVisitantes, setReporteTotalVisitantes] = useState<any>(null)
   const [reporteMasVisitada, setReporteMasVisitada] = useState<any>(null)
   const [reporteFilaLarga, setReporteFilaLarga] = useState<any>(null)
   const [reporteCierresClima, setReporteCierresClima] = useState<any>(null)
+  const [reporteIngresos, setReporteIngresos] = useState<any>(null)
+  const [reporteMantenimiento, setReporteMantenimiento] = useState<any>(null)
+  const [reporteIncidentes, setReporteIncidentes] = useState<any>(null)
+  const [notificaciones, setNotificaciones] = useState<any[]>([])
   const [analisisGrafo, setAnalisisGrafo] = useState<any>(null)
   const [jerarquiaAdmin, setJerarquiaAdmin] = useState<any[]>([])
+  const [selectedZonaId, setSelectedZonaId] = useState("Z1")
+  const [selectedAtraccionId, setSelectedAtraccionId] = useState<string | null>(null)
+  const [mapFilter, setMapFilter] = useState<"todas" | "activas">("todas")
   
 
   useEffect(() => {
     const cargarDatos = async () => {
       setLoading(true)
       try {
-        const [dataAtracciones, dataZonas, dataStats] = await Promise.all([
+        const [dataAtracciones, dataZonas, dataStats, dataConexiones, dataAforo] = await Promise.all([
           getAtracciones(),
           getZonas(),
           getEstadisticas(),
+          getConexionesGrafo(),
+          getAforo(),
         ])
         setAtracciones(dataAtracciones)
         setZonas(dataZonas)
         setEstadisticas(dataStats)
+        setConexionesGrafo(dataConexiones)
+        setAforo(dataAforo)
       } catch (error) {
         console.error("Error cargando datos:", error)
         setAtracciones([])
@@ -79,6 +171,126 @@ export default function TechParkDashboard() {
     }
     cargarDatos()
   }, [])
+
+  const zonasMapa = useMemo(() => {
+    return zoneLayouts.map((layout) => {
+      const zonaApi = zonas.find((zona) => zona.id === layout.id)
+
+      return {
+        ...layout,
+        nombre: zonaApi?.nombre ?? layout.nombre,
+        capacidad: zonaApi?.capacidad ?? layout.capacidad,
+      }
+    })
+  }, [zonas])
+
+  const atraccionesConMapa = useMemo(() => {
+    return atracciones.map((atraccion, index) => {
+      const position = attractionMapPositions[String(atraccion.id)]
+
+      if (position) {
+        return { atraccion, ...position }
+      }
+
+      const zoneId = zoneByAttractionType[atraccion.tipo] ?? "Z1"
+      const zoneLayout = zoneLayouts.find((zone) => zone.id === zoneId) ?? zoneLayouts[0]
+      const column = index % 3
+      const row = Math.floor(index / 3) % 2
+
+      return {
+        atraccion,
+        zoneId,
+        x: zoneLayout.x + 12 + column * 8,
+        y: zoneLayout.y + 13 + row * 12,
+      }
+    })
+  }, [atracciones])
+
+  const atraccionesVisiblesMapa = useMemo(() => {
+    if (mapFilter === "activas") {
+      return atraccionesConMapa.filter(({ atraccion }) => atraccion.estado === "ACTIVA")
+    }
+
+    return atraccionesConMapa
+  }, [atraccionesConMapa, mapFilter])
+
+  const selectedZona = zonasMapa.find((zona) => zona.id === selectedZonaId) ?? zonasMapa[0]!
+  const selectedZonaAforo = aforo?.zonas.find((zona) => zona.id === selectedZonaId)
+  const ticketPrecios = {
+    GENERAL: 50000,
+    FAMILIAR: 40000,
+    FAST_PASS: 80000,
+  }
+
+  const selectedZonaAtracciones = useMemo(() => {
+    return atraccionesConMapa
+      .filter(({ zoneId }) => zoneId === selectedZonaId)
+      .map(({ atraccion }) => atraccion)
+  }, [atraccionesConMapa, selectedZonaId])
+
+  const selectedAtraccion = useMemo(() => {
+    const atraccionDeZona = selectedZonaAtracciones.find(
+      (atraccion) => String(atraccion.id) === selectedAtraccionId
+    )
+
+    return atraccionDeZona ?? selectedZonaAtracciones[0] ?? null
+  }, [selectedAtraccionId, selectedZonaAtracciones])
+
+  const conexionesMapa = useMemo(() => {
+    const conexiones = conexionesGrafo?.conexiones
+
+    if (!conexiones) {
+      return []
+    }
+
+    const vistas: Array<{ origen: string; destino: string; peso: number }> = []
+    const visitadas = new Set<string>()
+
+    Object.entries(conexiones).forEach(([origen, destinos]: any) => {
+      if (!Array.isArray(destinos)) return
+
+      destinos.forEach((destinoInfo: any) => {
+        const destino = typeof destinoInfo === "string" ? destinoInfo : destinoInfo.destino
+        const peso = typeof destinoInfo === "string" ? 1 : Number(destinoInfo.peso ?? 1)
+
+        if (!destino) return
+
+        const key = [origen, destino].sort().join("-")
+        if (visitadas.has(key)) return
+
+        visitadas.add(key)
+        vistas.push({ origen, destino, peso })
+      })
+    })
+
+    return vistas
+  }, [conexionesGrafo])
+
+  const rutaSeleccionada = Array.isArray(resultadoRuta?.ruta) ? resultadoRuta.ruta : []
+
+  const esTramoDeRuta = (origen: string, destino: string) => {
+    for (let i = 0; i < rutaSeleccionada.length - 1; i++) {
+      const a = rutaSeleccionada[i]
+      const b = rutaSeleccionada[i + 1]
+
+      if ((a === origen && b === destino) || (a === destino && b === origen)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  const seleccionarZona = (zonaId: string) => {
+    setSelectedZonaId(zonaId)
+    const primeraAtraccion = atraccionesConMapa.find(({ zoneId }) => zoneId === zonaId)
+    setSelectedAtraccionId(primeraAtraccion ? String(primeraAtraccion.atraccion.id) : null)
+  }
+
+  const seleccionarAtraccionMapa = (atraccion: Atraccion, zoneId: string) => {
+    setSelectedZonaId(zoneId)
+    setSelectedAtraccionId(String(atraccion.id))
+  }
 
     const buscarAtraccion = async () => {
     if (busqueda.trim() === "") return
@@ -104,10 +316,14 @@ export default function TechParkDashboard() {
         const filaLarga = await getReporteFilaMasLarga()
     
         const cierres = await getReporteCierresClima()
+        const ingresos = await getReporteIngresosDiarios()
+        const mantenimiento = await getReporteAlertasMantenimiento()
+        const incidentes = await getReporteIncidentesOperativos()
     
         const analisis = await getAnalisisGrafo()
     
         const jerarquia = await getJerarquiaAdmin()
+        const avisos = await getNotificaciones()
     
         setConexionesGrafo(conexiones)
     
@@ -118,10 +334,14 @@ export default function TechParkDashboard() {
         setReporteFilaLarga(filaLarga)
     
         setReporteCierresClima(cierres)
+        setReporteIngresos(ingresos)
+        setReporteMantenimiento(mantenimiento)
+        setReporteIncidentes(incidentes)
     
         setAnalisisGrafo(analisis)
     
         setJerarquiaAdmin(jerarquia)
+        setNotificaciones(avisos)
     
       } catch (error) {
     
@@ -147,7 +367,7 @@ export default function TechParkDashboard() {
       )
     }
     
-    const cambiarEstadoOperador = (estado: "ACTIVA" | "CERRADA" | "EN_MANTENIMIENTO") => {
+    const cambiarEstadoOperador = async (estado: "ACTIVA" | "CERRADA" | "EN_MANTENIMIENTO") => {
       const atraccion = getAtraccionSeleccionada()
     
       if (!atraccion) {
@@ -155,15 +375,37 @@ export default function TechParkDashboard() {
         return
       }
     
-      const nuevasAtracciones = atracciones.map(a =>
-        String(a.id) === atraccionOperador ? { ...a, estado } : a
-      )
-    
-      setAtracciones(nuevasAtracciones)
-      setMensajeOperador("Estado actualizado para " + atraccion.nombre + ": " + estado)
+      try {
+        await actualizarEstadoAtraccion(atraccionOperador, estado)
+        const nuevasAtracciones = await getAtracciones()
+        setAtracciones(nuevasAtracciones)
+        setMensajeOperador("Estado actualizado para " + atraccion.nombre + ": " + estado)
+      } catch (error) {
+        console.error(error)
+        setMensajeOperador("No se pudo actualizar el estado en el backend")
+      }
     }
     
-    const procesarFilaOperador = () => {
+    const registrarRevisionOperador = async () => {
+      const atraccion = getAtraccionSeleccionada()
+
+      if (!atraccion) {
+        setMensajeOperador("Seleccione una atracciÃ³n primero")
+        return
+      }
+
+      try {
+        await registrarRevisionAtraccion(atraccionOperador)
+        const nuevasAtracciones = await getAtracciones()
+        setAtracciones(nuevasAtracciones)
+        setMensajeOperador("RevisiÃ³n tÃ©cnica registrada correctamente para " + atraccion.nombre)
+      } catch (error) {
+        console.error(error)
+        setMensajeOperador("No se pudo registrar la revisiÃ³n tÃ©cnica")
+      }
+    }
+
+    const procesarFilaOperador = async () => {
       const atraccion = getAtraccionSeleccionada()
     
       if (!atraccion) {
@@ -171,35 +413,84 @@ export default function TechParkDashboard() {
         return
       }
     
-      if (atraccion.personasEnFila <= 0) {
-        setMensajeOperador("No hay personas en fila para procesar")
+      try {
+        const data = await procesarFilaAtraccion(atraccionOperador)
+        const nuevasAtracciones = await getAtracciones()
+        const nuevasStats = await getEstadisticas()
+        setAtracciones(nuevasAtracciones)
+        setEstadisticas(nuevasStats)
+        setMensajeOperador(
+          data.error ||
+          "Fila procesada en " +
+          atraccion.nombre +
+          ". Personas procesadas: " +
+          data.procesados +
+          ". Denegadas: " +
+          data.denegados
+        )
+      } catch (error) {
+        console.error(error)
+        setMensajeOperador("No se pudo procesar la fila")
+      }
+    }
+
+    const generarVisitantesDemoOperador = async () => {
+      const atraccion = getAtraccionSeleccionada()
+
+      if (!atraccion) {
+        setMensajeOperador("Seleccione una atracción primero")
         return
       }
-    
-      const personasProcesadas = Math.min(atraccion.personasEnFila, atraccion.capacidadMaxima)
-    
-      const nuevasAtracciones = atracciones.map(a =>
-        String(a.id) === atraccionOperador
-          ? { ...a, personasEnFila: a.personasEnFila - personasProcesadas }
-          : a
-      )
-    
-      setAtracciones(nuevasAtracciones)
-    
-      setMensajeOperador(
-        "Fila procesada en " +
-        atraccion.nombre +
-        ". Ingresaron primero visitantes FAST_PASS. Personas procesadas: " +
-        personasProcesadas
-      )
+
+      try {
+        const data = await generarVisitantesDemo(atraccionOperador, cantidadDemoFila)
+        const nuevasAtracciones = await getAtracciones()
+        setAtracciones(nuevasAtracciones)
+        setMensajeOperador(
+          data.error ||
+          `${data.agregados} visitantes demo agregados a la fila de ${atraccion.nombre}`
+        )
+      } catch (error) {
+        console.error(error)
+        setMensajeOperador("No se pudieron generar visitantes demo")
+      }
+    }
+
+    const actualizarPausaFilaOperador = async (pausada: boolean) => {
+      const atraccion = getAtraccionSeleccionada()
+
+      if (!atraccion) {
+        setMensajeOperador("Seleccione una atracción primero")
+        return
+      }
+
+      try {
+        const data = await actualizarPausaFila(atraccionOperador, pausada)
+        const nuevasAtracciones = await getAtracciones()
+        setAtracciones(nuevasAtracciones)
+        setMensajeOperador(data.error || `${data.mensaje} en ${atraccion.nombre}`)
+      } catch (error) {
+        console.error(error)
+        setMensajeOperador("No se pudo cambiar el estado de la fila")
+      }
     }
 
     const manejarFila = async (id: string) => {
+      if (!visitante || !visitante.ticket || visitante.ticket === "SIN_TICKET") {
+        alert("Debes comprar un ticket antes de unirte a una fila")
+        return
+      }
+
       try {
         const data = await unirseAFila(
           id,
           visitante?.nombre || "Visitante",
-          visitante?.ticket || "GENERAL"
+          visitante?.ticket || "GENERAL",
+          {
+            edad: visitante?.edad,
+            estatura: visitante?.estatura,
+            saldo: visitante?.saldo,
+          }
         )
     
         const atraccion = atracciones.find(a => String(a.id) === id)
@@ -229,6 +520,7 @@ export default function TechParkDashboard() {
     try {
       const data = await cargarVisitante()
       setVisitante(data)
+      setMensajeTicket("")
   
       if (data.error) {
         alert(data.error)
@@ -241,6 +533,75 @@ export default function TechParkDashboard() {
       alert("No se pudo cargar el visitante")
     }
   }
+
+  const manejarComprarTicket = async () => {
+    if (!visitante) {
+      setMensajeTicket("Carga un visitante antes de comprar el ticket")
+      return
+    }
+
+    try {
+      const data = await comprarTicket({
+        nombre: visitante.nombre,
+        documento: visitante.documento,
+        edad: Number(visitante.edad),
+        estatura: Number(visitante.estatura),
+        saldo: Number(visitante.saldo),
+        tipoTicket: tipoTicketCompra,
+        zonaIngresoId: zonaIngresoTicket,
+      })
+
+      if (data.error) {
+        setMensajeTicket(data.error)
+        return
+      }
+
+      setVisitante(data.visitante)
+      setAforo(data.aforo)
+      setMensajeTicket(`${data.mensaje}. Precio: $${data.precio}. Zona: ${data.zonaIngreso}`)
+
+      const [nuevasStats, nuevoReporteIngresos, nuevoReporteTotal, nuevasZonas] = await Promise.all([
+        getEstadisticas(),
+        getReporteIngresosDiarios(),
+        getReporteTotalVisitantes(),
+        getZonas(),
+      ])
+
+      setEstadisticas(nuevasStats)
+      setReporteIngresos(nuevoReporteIngresos)
+      setReporteTotalVisitantes(nuevoReporteTotal)
+      setZonas(nuevasZonas)
+    } catch (error) {
+      console.error("Error comprando ticket:", error)
+      setMensajeTicket("No se pudo comprar el ticket")
+    }
+  }
+
+  const manejarCargarEscenario = async () => {
+    try {
+      const data = await cargarEscenarioInicial()
+      const [nuevasAtracciones, nuevasZonas, nuevasStats, nuevasConexiones, nuevoAforo] = await Promise.all([
+        getAtracciones(),
+        getZonas(),
+        getEstadisticas(),
+        getConexionesGrafo(),
+        getAforo(),
+      ])
+
+      setAtracciones(nuevasAtracciones)
+      setZonas(nuevasZonas)
+      setEstadisticas(nuevasStats)
+      setConexionesGrafo(nuevasConexiones)
+      setAforo(nuevoAforo)
+      setResultadoRuta(null)
+      setMensajeTicket("")
+      alert(data.mensaje || "Escenario cargado")
+    } catch (error) {
+      console.error("Error cargando escenario:", error)
+      alert("No se pudo cargar el escenario inicial")
+    }
+  }
+
   const manejarRuta = async () => {
     try {
       const data = await calcularRuta(origenRuta, destinoRuta)
@@ -287,6 +648,19 @@ export default function TechParkDashboard() {
         return <Badge className="bg-chart-3/20 text-chart-3 border-chart-3/30"><AlertTriangle className="w-3 h-3 mr-1" />Mantenimiento</Badge>
       default:
         return <Badge variant="secondary">Desconocido</Badge>
+    }
+  }
+
+  const getEstadoMarkerClass = (estado: Atraccion["estado"]) => {
+    switch (estado) {
+      case "ACTIVA":
+        return "border-primary/70 bg-primary text-primary-foreground shadow-primary/25"
+      case "CERRADA":
+        return "border-destructive/70 bg-destructive text-white shadow-destructive/25"
+      case "EN_MANTENIMIENTO":
+        return "border-chart-3/70 bg-chart-3 text-background shadow-chart-3/25"
+      default:
+        return "border-border bg-secondary text-secondary-foreground"
     }
   }
 
@@ -341,7 +715,7 @@ export default function TechParkDashboard() {
                     setActivePanel(item.id)
                     setSidebarOpen(false)
                   
-                    if (item.id === "admin") {
+                    if (item.id === "admin" || item.id === "stats") {
                       cargarDatosAdmin()
                     }
                   }}className={cn(
@@ -481,6 +855,292 @@ export default function TechParkDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              <Card className="bg-card border-border">
+                <CardHeader className="gap-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-foreground">
+                        <MapPin className="w-5 h-5 text-primary" />
+                        Mapa interactivo del parque
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Explora zonas, selecciona marcadores y revisa disponibilidad en tiempo real.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-border bg-secondary/60 p-1">
+                      <Button
+                        size="sm"
+                        variant={mapFilter === "todas" ? "default" : "ghost"}
+                        onClick={() => setMapFilter("todas")}
+                      >
+                        <Layers className="w-4 h-4" />
+                        Todas
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={mapFilter === "activas" ? "default" : "ghost"}
+                        onClick={() => setMapFilter("activas")}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Activas
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="relative min-h-[430px] overflow-hidden rounded-md border border-border bg-[radial-gradient(circle_at_25%_20%,rgba(46,229,157,0.16),transparent_30%),radial-gradient(circle_at_70%_70%,rgba(80,140,255,0.13),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] sm:min-h-[520px]">
+                      <div className="absolute inset-4 rounded-md border border-border/60 bg-background/20" />
+                      <div className="absolute left-[6%] right-[6%] top-1/2 h-px bg-border/60" />
+                      <div className="absolute bottom-[8%] top-[8%] left-1/2 w-px bg-border/60" />
+                      <div className="absolute left-[44%] top-[40%] h-[22%] w-[14%] rounded-md border border-border/60 bg-background/35" />
+
+                      <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        {conexionesMapa.map(({ origen, destino, peso }) => {
+                          const inicio = attractionMapPositions[origen]
+                          const fin = attractionMapPositions[destino]
+                          const enRuta = esTramoDeRuta(origen, destino)
+
+                          if (!inicio || !fin) {
+                            return null
+                          }
+
+                          return (
+                            <g key={`${origen}-${destino}`}>
+                              <line
+                                x1={inicio.x}
+                                y1={inicio.y}
+                                x2={fin.x}
+                                y2={fin.y}
+                                stroke={enRuta ? "oklch(0.72 0.19 160)" : "oklch(0.65 0 0 / 0.45)"}
+                                strokeWidth={enRuta ? 0.9 : 0.35}
+                                strokeLinecap="round"
+                                strokeDasharray={enRuta ? "0" : "1.2 1.2"}
+                              />
+                              <text
+                                x={(inicio.x + fin.x) / 2}
+                                y={(inicio.y + fin.y) / 2}
+                                textAnchor="middle"
+                                className="fill-muted-foreground text-[2.3px]"
+                              >
+                                {peso}
+                              </text>
+                            </g>
+                          )
+                        })}
+                      </svg>
+
+                      {zonasMapa.map((zona) => {
+                        const atraccionesZona = atraccionesConMapa.filter(({ zoneId }) => zoneId === zona.id)
+                        const atraccionesActivasZona = atraccionesZona.filter(({ atraccion }) => atraccion.estado === "ACTIVA").length
+                        const zonaAforo = aforo?.zonas.find((zonaActual) => zonaActual.id === zona.id)
+
+                        return (
+                          <button
+                            key={zona.id}
+                            type="button"
+                            onClick={() => seleccionarZona(zona.id)}
+                            className={cn(
+                              "absolute rounded-md border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              zona.className,
+                              selectedZonaId === zona.id
+                                ? "border-primary/80 ring-2 ring-primary/50"
+                                : "opacity-90 hover:opacity-100"
+                            )}
+                            style={{
+                              left: `${zona.x}%`,
+                              top: `${zona.y}%`,
+                              width: `${zona.width}%`,
+                              height: `${zona.height}%`,
+                            }}
+                            aria-label={`Seleccionar ${zona.nombre}`}
+                          >
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", zona.accentClass)} />
+                                <span className="truncate text-xs font-semibold uppercase text-muted-foreground">{zona.id}</span>
+                              </span>
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {atraccionesActivasZona}/{atraccionesZona.length}
+                              </span>
+                            </span>
+                            <span className="mt-2 block text-sm font-semibold leading-tight text-foreground">
+                              {zona.nombre}
+                            </span>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              Aforo {zonaAforo?.ocupacion ?? 0}/{zona.capacidad}
+                            </span>
+                          </button>
+                        )
+                      })}
+
+                      {atraccionesVisiblesMapa.map(({ atraccion, zoneId, x, y }) => (
+                        <button
+                          key={atraccion.id}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            seleccionarAtraccionMapa(atraccion, zoneId)
+                          }}
+                          className={cn(
+                            "absolute z-20 flex h-9 min-w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-1 rounded-full border px-2 text-xs font-bold shadow-lg transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            getEstadoMarkerClass(atraccion.estado),
+                            selectedAtraccion?.id === atraccion.id && "ring-2 ring-white/80"
+                          )}
+                          style={{ left: `${x}%`, top: `${y}%` }}
+                          aria-label={`Ver ${atraccion.nombre}`}
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>{atraccion.id}</span>
+                        </button>
+                      ))}
+
+                      <div className="absolute bottom-3 left-3 right-3 z-30 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background/90 p-2 backdrop-blur">
+                        <span className="text-xs font-medium text-muted-foreground">Estado</span>
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Activa
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="h-2.5 w-2.5 rounded-full bg-chart-3" /> Mantenimiento
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="h-2.5 w-2.5 rounded-full bg-destructive" /> Cerrada
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="rounded-md border border-border bg-secondary/35 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase text-muted-foreground">Zona seleccionada</p>
+                            <h3 className="mt-1 text-lg font-semibold text-foreground">{selectedZona.nombre}</h3>
+                          </div>
+                          <Badge className="bg-primary/20 text-primary border-primary/30">{selectedZona.id}</Badge>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          <div className="rounded-md bg-background/55 p-3 text-center">
+                            <p className="text-xl font-bold text-foreground">{selectedZonaAtracciones.length}</p>
+                            <p className="text-xs text-muted-foreground">Atracciones</p>
+                          </div>
+                          <div className="rounded-md bg-background/55 p-3 text-center">
+                            <p className="text-xl font-bold text-primary">
+                              {selectedZonaAtracciones.filter((atraccion) => atraccion.estado === "ACTIVA").length}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Activas</p>
+                          </div>
+                          <div className="rounded-md bg-background/55 p-3 text-center">
+                            <p className="text-xl font-bold text-foreground">{selectedZona.capacidad}</p>
+                            <p className="text-xs text-muted-foreground">Capacidad</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 rounded-md bg-background/55 p-3">
+                          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Aforo zona</span>
+                            <span>{selectedZonaAforo?.cupos ?? selectedZona.capacidad} cupos</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                            <div
+                              className="h-full rounded-full bg-primary transition-all"
+                              style={{
+                                width: `${Math.min(((selectedZonaAforo?.ocupacion ?? 0) / (selectedZona.capacidad || 1)) * 100, 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-foreground">
+                            {selectedZonaAforo?.ocupacion ?? 0}/{selectedZona.capacidad} visitantes
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-md border border-border bg-secondary/35 p-4">
+                        <div className="flex items-center gap-2">
+                          <LocateFixed className="w-4 h-4 text-primary" />
+                          <p className="text-sm font-semibold text-foreground">Detalle de atraccion</p>
+                        </div>
+
+                        {selectedAtraccion ? (
+                          <div className="mt-4 space-y-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {getTipoIcon(selectedAtraccion.tipo)}
+                                  <h4 className="truncate font-semibold text-foreground">{selectedAtraccion.nombre}</h4>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">{selectedAtraccion.tipo}</p>
+                              </div>
+                              {getEstadoBadge(selectedAtraccion.estado)}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="rounded-md bg-background/55 p-3">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Clock className="w-4 h-4" />
+                                  <span className="text-xs">Espera</span>
+                                </div>
+                                <p className="mt-1 text-lg font-semibold text-foreground">
+                                  {selectedAtraccion.estado === "ACTIVA" ? `${selectedAtraccion.tiempoEsperaMinutos} min` : "No disp."}
+                                </p>
+                              </div>
+                              <div className="rounded-md bg-background/55 p-3">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Users className="w-4 h-4" />
+                                  <span className="text-xs">Fila</span>
+                                </div>
+                                <p className="mt-1 text-lg font-semibold text-foreground">
+                                  {selectedAtraccion.personasEnFila}/{selectedAtraccion.capacidadMaxima}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm text-muted-foreground">
+                            Selecciona una zona con atracciones para ver su disponibilidad.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="rounded-md border border-border bg-secondary/35 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                          <p className="text-sm font-semibold text-foreground">Atracciones de la zona</p>
+                          <Badge variant="secondary">{selectedZonaAtracciones.length}</Badge>
+                        </div>
+                        <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
+                          {selectedZonaAtracciones.length === 0 ? (
+                            <p className="rounded-md bg-background/55 p-3 text-sm text-muted-foreground">
+                              No hay atracciones asignadas a esta zona.
+                            </p>
+                          ) : (
+                            selectedZonaAtracciones.map((atraccion) => (
+                              <button
+                                key={atraccion.id}
+                                type="button"
+                                onClick={() => setSelectedAtraccionId(String(atraccion.id))}
+                                className={cn(
+                                  "w-full rounded-md border p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                  selectedAtraccion?.id === atraccion.id
+                                    ? "border-primary/60 bg-primary/10"
+                                    : "border-border bg-background/55"
+                                )}
+                              >
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="min-w-0 truncate text-sm font-medium text-foreground">{atraccion.nombre}</span>
+                                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", getEstadoMarkerClass(atraccion.estado).split(" ")[1])} />
+                                </span>
+                                <span className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span>{atraccion.id}</span>
+                                  <span>{atraccion.estado === "ACTIVA" ? `${atraccion.tiempoEsperaMinutos} min` : "No disponible"}</span>
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {loading ? (
@@ -628,6 +1288,57 @@ export default function TechParkDashboard() {
                       </div>
                     </div>
                   )}
+
+                  <div className="rounded-md border border-border bg-secondary/35 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Compra de ticket</p>
+                        <p className="text-xs text-muted-foreground">
+                          Aforo parque: {aforo?.ocupacionParque ?? 0}/{aforo?.capacidadParque ?? 0}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">{aforo?.cuposParque ?? 0} cupos</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
+                      <select
+                        value={tipoTicketCompra}
+                        onChange={(e) => setTipoTicketCompra(e.target.value as "GENERAL" | "FAMILIAR" | "FAST_PASS")}
+                        className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                      >
+                        <option value="GENERAL">GENERAL - ${ticketPrecios.GENERAL}</option>
+                        <option value="FAMILIAR">FAMILIAR - ${ticketPrecios.FAMILIAR}</option>
+                        <option value="FAST_PASS">FAST_PASS - ${ticketPrecios.FAST_PASS}</option>
+                      </select>
+
+                      <select
+                        value={zonaIngresoTicket}
+                        onChange={(e) => setZonaIngresoTicket(e.target.value)}
+                        className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                      >
+                        {zonas.map((zona) => {
+                          const zonaAforo = aforo?.zonas.find((zonaActual) => zonaActual.id === zona.id)
+
+                          return (
+                            <option key={zona.id} value={zona.id}>
+                              {zona.nombre} ({zonaAforo?.cupos ?? zona.cupos ?? zona.capacidad} cupos)
+                            </option>
+                          )
+                        })}
+                      </select>
+
+                      <Button onClick={manejarComprarTicket} disabled={!visitante}>
+                        <Ticket className="w-4 h-4" />
+                        Comprar
+                      </Button>
+                    </div>
+
+                    {mensajeTicket && (
+                      <p className="mt-3 rounded-md bg-background/70 p-3 text-sm text-foreground">
+                        {mensajeTicket}
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
           
@@ -682,6 +1393,9 @@ export default function TechParkDashboard() {
           
                           <p className="text-sm text-muted-foreground">
                             Paradas: {resultadoRuta.cantidadParadas}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Distancia total: {resultadoRuta.distanciaTotal} unidades ({resultadoRuta.algoritmo || "BFS"})
                           </p>
                         </>
           
@@ -793,6 +1507,10 @@ export default function TechParkDashboard() {
                 </p>
               </div>
           
+              <Button className="mt-4" onClick={manejarCargarEscenario}>
+                Cargar escenario de prueba
+              </Button>
+
               {/* Zonas */}
               <div>
                 <h3 className="text-lg font-semibold text-foreground mb-3">
@@ -845,7 +1563,11 @@ export default function TechParkDashboard() {
                                 {String(origen)}
                               </span>
                               {" ↔ "}
-                              {Array.isArray(destinos) ? destinos.join(", ") : "Sin conexiones"}
+                              {Array.isArray(destinos)
+                                ? destinos.map((destino: any) =>
+                                  typeof destino === "string" ? destino : `${destino.destino} (${destino.peso})`
+                                ).join(", ")
+                                : "Sin conexiones"}
                             </div>
                           ))
                         ) : (
@@ -983,6 +1705,26 @@ export default function TechParkDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Notificaciones del Sistema
+                </h3>
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4 space-y-2">
+                    {notificaciones.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin notificaciones registradas</p>
+                    ) : (
+                      notificaciones.slice(-5).reverse().map((notificacion, index) => (
+                        <div key={index} className="rounded-md bg-secondary p-3">
+                          <p className="text-xs font-medium text-primary">{notificacion.tipo}</p>
+                          <p className="text-sm text-foreground">{notificacion.mensaje}</p>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
           
             </div>
           )}
@@ -1068,9 +1810,60 @@ export default function TechParkDashboard() {
                           {getAtraccionSeleccionada()?.tiempoEsperaMinutos} min
                         </p>
                       </div>
+
+                      <div className="p-3 rounded-lg bg-secondary md:col-span-2">
+                        <p className="text-xs text-muted-foreground">
+                          Estado de fila
+                        </p>
+
+                        <p className="font-semibold text-foreground">
+                          {getAtraccionSeleccionada()?.filaPausada ? "Pausada" : "Avanzando por ciclos"}
+                        </p>
+                      </div>
           
                     </div>
                   )}
+
+                  <div className="rounded-md border border-border bg-secondary/35 p-4">
+                    <div className="mb-3 flex flex-col gap-1">
+                      <p className="text-sm font-semibold text-foreground">Simulador de fila</p>
+                      <p className="text-xs text-muted-foreground">
+                        Genera visitantes de prueba para poblar la cola y procesa ciclos segÃºn la capacidad.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-[160px_1fr_1fr_1fr]">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={cantidadDemoFila}
+                        onChange={(e) => setCantidadDemoFila(Number(e.target.value))}
+                        className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                      />
+
+                      <Button variant="outline" onClick={generarVisitantesDemoOperador}>
+                        <Users className="w-4 h-4" />
+                        Generar visitantes
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => actualizarPausaFilaOperador(true)}
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Pausar fila
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => actualizarPausaFilaOperador(false)}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Reanudar fila
+                      </Button>
+                    </div>
+                  </div>
           
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           
@@ -1102,13 +1895,7 @@ export default function TechParkDashboard() {
                       Reactivar atracción
                     </Button>
           
-                    <Button
-                      onClick={() => {
-                        setMensajeOperador(
-                          "Revisión técnica registrada correctamente"
-                        )
-                      }}
-                    >
+                    <Button onClick={registrarRevisionOperador}>
                       Registrar revisión técnica
                     </Button>
           
@@ -1116,7 +1903,7 @@ export default function TechParkDashboard() {
                       className="bg-primary text-primary-foreground"
                       onClick={procesarFilaOperador}
                     >
-                      Procesar fila FAST_PASS
+                      Procesar siguiente ciclo
                     </Button>
           
                   </div>
@@ -1143,7 +1930,7 @@ export default function TechParkDashboard() {
               </div>
 
               {estadisticas && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                   <Card className="bg-card border-border">
                     <CardContent className="p-4 text-center">
                       <p className="text-3xl font-bold text-foreground">{estadisticas.totalAtracciones}</p>
@@ -1168,8 +1955,50 @@ export default function TechParkDashboard() {
                       <p className="text-sm text-muted-foreground mt-1">Tiempo Promedio</p>
                     </CardContent>
                   </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <p className="text-3xl font-bold text-foreground">{aforo?.ocupacionParque ?? estadisticas.ocupacionParque ?? 0}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Aforo Actual</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <p className="text-3xl font-bold text-primary">{aforo?.ticketsVendidos ?? estadisticas.ticketsVendidos ?? 0}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Tickets Vendidos</p>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Ingresos diarios estimados</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      ${reporteIngresos?.ingresosEstimados ?? 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Tickets vendidos: {reporteIngresos?.ticketsVendidos ?? 0}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Alertas de mantenimiento</p>
+                    <p className="text-2xl font-bold text-chart-3">
+                      {reporteMantenimiento?.alertas ?? 0}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-muted-foreground">Incidentes operativos</p>
+                    <p className="text-2xl font-bold text-destructive">
+                      {reporteIncidentes?.incidentes ?? 0}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="bg-card border-border">
