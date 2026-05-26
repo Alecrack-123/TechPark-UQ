@@ -127,6 +127,23 @@ public class AtraccionController {
 
         encontrada.agregarVisitanteAFila(visitante);
 
+        for (int i = 0; i < 3; i++) {
+        
+            Visitante extra = new Visitante(
+                "BOT" + System.currentTimeMillis() + i,
+                "VisitanteBot" + i,
+                20,
+                1.70,
+                10000
+            );
+        
+            Ticket t = new Ticket(TipoTicket.GENERAL, 0);
+        
+            extra.setTicket(t);
+        
+            encontrada.agregarVisitanteAFila(extra);
+        }
+
         if (encontrada.getCantidadEnFila() >= 500) {
             encontrada.setEstado(EstadoAtraccion.EN_MANTENIMIENTO);
             encontrada.setMotivoCierre("Límite de 500 visitantes alcanzado");

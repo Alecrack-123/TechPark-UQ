@@ -1,0 +1,6 @@
+Juan Daniel
+100123456
+20
+1.75
+85000
+FAST_PASS

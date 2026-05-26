@@ -1,16 +1,13 @@
 package com.techpark.backend.controller;
 
-
+import com.techpark.backend.structures.GrafoParque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.techpark.backend.structures.GrafoParque;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -30,7 +27,10 @@ public class RutaController {
     }
 
     @GetMapping("/api/rutas/{origen}/{destino}")
-    public Map<String, Object> calcularRuta(@PathVariable String origen, @PathVariable String destino) {
+    public Map<String, Object> calcularRuta(
+        @PathVariable String origen,
+        @PathVariable String destino
+    ) {
         GrafoParque grafo = crearGrafo();
 
         List<String> ruta = grafo.buscarRuta(origen, destino);
@@ -61,6 +61,34 @@ public class RutaController {
 
         return respuesta;
     }
-} 
-    
 
+    @GetMapping("/api/rutas/analisis")
+    public Map<String, Object> analizarGrafo() {
+        GrafoParque grafo = crearGrafo();
+
+        Map<String, Object> respuesta = new HashMap<>();
+
+        respuesta.put("totalNodos", grafo.getConexiones().size());
+
+        String masConectada = "";
+        int mayorConexiones = 0;
+
+        for (String nodo : grafo.getConexiones().keySet()) {
+            int cantidad = grafo.getConexiones().get(nodo).size();
+
+            if (cantidad > mayorConexiones) {
+                mayorConexiones = cantidad;
+                masConectada = nodo;
+            }
+        }
+
+        respuesta.put("atraccionMasConectada", masConectada);
+        respuesta.put("cantidadConexiones", mayorConexiones);
+        respuesta.put(
+            "clusterPopular",
+            "Atracciones cercanas a " + masConectada
+        );
+
+        return respuesta;
+    }
+}
